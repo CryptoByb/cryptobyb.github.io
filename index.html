@@ -1,9 +1,700 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>CryptoByB</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blacklist Checker — CryptoByB</title>
+<meta name="description" content="Check if a USDT or USDC wallet is blacklisted across Ethereum, Tron, Avalanche, Polygon, Arbitrum, Base and Optimism. Free, real-time, on-chain.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07080f;--surface:#0d0e1a;--surface2:#13141f;--surface3:#1a1b2a;
+  --border:rgba(79,142,247,0.07);--border2:rgba(79,142,247,0.14);--border3:rgba(79,142,247,0.28);
+  --text:#e2e8f0;--muted:#64748b;--muted2:#94a3b8;
+  --accent:#4f8ef7;--accent-dim:rgba(79,142,247,0.1);
+  --green:#22c55e;--green-dim:rgba(34,197,94,0.1);
+  --red:#ef4444;--red-dim:rgba(239,68,68,0.1);
+  --amber:#f59e0b;--amber-dim:rgba(245,158,11,0.1);
+  --mono:'JetBrains Mono',monospace;--sans:'Inter',sans-serif;
+  --r:10px;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden;line-height:1.5}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(79,142,247,0.022) 1px,transparent 1px),linear-gradient(90deg,rgba(79,142,247,0.022) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.wrap{position:relative;z-index:1;max-width:800px;margin:0 auto;padding:40px 24px 80px}
+
+/* Header */
+.hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:36px}
+.logo{display:flex;align-items:center;gap:12px;text-decoration:none}
+.logo-icon{width:38px;height:38px;background:var(--accent-dim);border:1px solid var(--border3);border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:15px;font-weight:600;color:var(--accent)}
+.logo-name{font-family:var(--mono);font-size:17px;font-weight:600;color:#fff;letter-spacing:-0.02em}
+.logo-tag{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:0.05em}
+
+/* Nav */
+.nav{display:flex;gap:3px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:4px;margin-bottom:28px}
+.nav-tab{flex:1;font-family:var(--mono);font-size:12px;font-weight:500;color:var(--muted);background:none;border:none;border-radius:7px;padding:10px 12px;cursor:pointer;transition:all .15s;letter-spacing:.02em;text-align:center}
+.nav-tab:hover{color:var(--text);background:var(--surface2)}
+.nav-tab.active{background:var(--surface2);color:var(--accent);border:1px solid var(--border2)}
+
+/* Tab content */
+.tab{display:none}.tab.active{display:block}
+
+/* Token toggle */
+.token-row{display:flex;gap:6px;margin-bottom:18px}
+.tok-btn{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:13px;font-weight:600;padding:10px 22px;border-radius:8px;border:1px solid var(--border2);background:var(--surface);color:var(--muted2);cursor:pointer;transition:all .15s}
+.tok-btn:hover{border-color:var(--border3);color:var(--text)}
+.tok-btn.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.tok-dot{width:8px;height:8px;border-radius:50%}
+
+/* Inputs */
+.inp-row{display:flex;gap:8px;margin-bottom:10px}
+.addr-inp{flex:1;font-family:var(--mono);font-size:13px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:0 16px;color:var(--text);outline:none;transition:border-color .2s;height:48px}
+.addr-inp::placeholder{color:var(--muted)}
+.addr-inp:focus{border-color:var(--accent)}
+.paste-btn{font-family:var(--mono);font-size:12px;font-weight:500;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:0 16px;color:var(--muted2);cursor:pointer;transition:all .15s;height:48px;white-space:nowrap}
+.paste-btn:hover{color:var(--text);border-color:var(--border3)}
+.main-btn{width:100%;font-family:var(--mono);font-size:14px;font-weight:600;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:14px;cursor:pointer;transition:all .15s;letter-spacing:.02em;margin-bottom:24px}
+.main-btn:hover{background:#6ba3ff}
+.main-btn:active{transform:scale(.99)}
+.main-btn:disabled{background:var(--surface2);color:var(--muted);cursor:not-allowed}
+
+/* Error */
+.err-box{display:none;background:var(--red-dim);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:12px 16px;font-family:var(--mono);font-size:12px;color:#fca5a5;margin-bottom:12px}
+
+/* Results */
+.res-section{display:none;margin-bottom:24px}
+.res-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+.sec-label{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.res-actions{display:flex;align-items:center;gap:6px}
+.addr-chip{font-family:var(--mono);font-size:11px;color:var(--accent);background:var(--accent-dim);border:1px solid var(--border3);padding:3px 10px;border-radius:4px}
+.act-btn{font-family:var(--mono);font-size:11px;color:var(--muted2);background:var(--surface);border:1px solid var(--border2);border-radius:4px;padding:4px 10px;cursor:pointer;transition:all .15s}
+.act-btn:hover{color:var(--text)}
+.act-btn.copied{color:var(--green);border-color:rgba(34,197,94,.3)}
+
+/* Result rows */
+.res-rows{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);overflow:hidden}
+.res-row{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border);gap:12px;transition:background .15s}
+.res-row:last-child{border-bottom:none}
+.res-row:hover{background:var(--surface2)}
+.chain-badge{font-family:var(--mono);font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;background:var(--surface2);color:var(--muted2);min-width:50px;text-align:center;flex-shrink:0}
+.chain-name{font-size:14px;font-weight:500;color:var(--text);flex:1}
+.row-status{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px;font-weight:600;flex-shrink:0}
+.sdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.row-status.scanning{color:var(--muted)}.row-status.scanning .sdot{background:var(--muted);animation:pulse 1.2s infinite}
+.row-status.safe{color:var(--green)}.row-status.safe .sdot{background:var(--green)}
+.row-status.blacklisted{color:var(--red)}.row-status.blacklisted .sdot{background:var(--red)}
+.row-status.error{color:var(--amber)}.row-status.error .sdot{background:var(--amber)}
+
+/* Spinner */
+.spin{width:12px;height:12px;border:1.5px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Banner */
+.banner{display:none;align-items:center;gap:10px;padding:13px 18px;border-radius:8px;font-family:var(--mono);font-size:13px;font-weight:500;margin-top:10px}
+.banner.safe{background:var(--green-dim);border:1px solid rgba(34,197,94,.2);color:#86efac}
+.banner.blacklisted{background:var(--red-dim);border:1px solid rgba(239,68,68,.25);color:#fca5a5}
+
+/* History */
+.hist-section{display:none;margin-bottom:24px}
+.hist-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.clear-btn{font-family:var(--mono);font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;padding:0}
+.clear-btn:hover{color:var(--text)}
+.hist-list{display:flex;flex-direction:column;gap:6px}
+.hist-item{display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;cursor:pointer;transition:border-color .15s;gap:10px}
+.hist-item:hover{border-color:var(--border2)}
+.hist-addr{font-family:var(--mono);font-size:12px;color:var(--accent);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.hist-meta{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.hist-time{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.hist-badge{font-family:var(--mono);font-size:10px;font-weight:600;padding:2px 8px;border-radius:3px}
+.hist-badge.safe{background:var(--green-dim);color:var(--green)}
+.hist-badge.blacklisted{background:var(--red-dim);color:var(--red)}
+.hist-badge.error{background:var(--amber-dim);color:var(--amber)}
+.hist-rm{font-size:16px;color:var(--muted);background:none;border:none;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0}
+.hist-rm:hover{color:var(--text)}
+
+/* Input label */
+.inp-label{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+
+/* Select */
+.sel-field{width:100%;font-family:var(--mono);font-size:13px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:0 14px;color:var(--text);outline:none;cursor:pointer;height:48px;margin-bottom:12px}
+.sel-field:focus{border-color:var(--accent)}
+.sel-row{display:flex;gap:8px;margin-bottom:12px}
+.sel-row>div{flex:1}
+
+/* TX items */
+.tx-list{display:flex;flex-direction:column;gap:8px}
+.tx-item{background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:14px 16px}
+.tx-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.tx-dir{font-family:var(--mono);font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px}
+.tx-dir.out{background:var(--red-dim);color:var(--red)}
+.tx-dir.in{background:var(--green-dim);color:var(--green)}
+.tx-amt{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--text)}
+.tx-hash{font-family:var(--mono);font-size:11px;color:var(--accent);text-decoration:none}
+.tx-hash:hover{text-decoration:underline}
+.tx-time{font-family:var(--mono);font-size:10px;color:var(--muted);display:block;margin-top:4px}
+
+/* Summary cards */
+.sum-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.sum-card{background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:14px 16px}
+.sum-label{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.sum-val{font-family:var(--mono);font-size:16px;font-weight:600}
+
+/* Batch table */
+.batch-ta{width:100%;font-family:var(--mono);font-size:12px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;color:var(--text);outline:none;resize:vertical;min-height:130px;margin-bottom:10px;line-height:1.8}
+.batch-ta::placeholder{color:var(--muted)}
+.batch-ta:focus{border-color:var(--accent)}
+.btable{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);overflow:hidden;font-family:var(--mono);font-size:12px}
+.btable th{padding:12px 14px;text-align:left;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--border2);background:var(--surface2)}
+.btable td{padding:11px 14px;border-bottom:1px solid var(--border);color:var(--text)}
+.btable tr:last-child td{border-bottom:none}
+.btable tr:hover td{background:var(--surface2)}
+
+/* Info grid */
+.info-section{margin-top:44px;padding-top:28px;border-top:1px solid var(--border)}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.info-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.info-card h3{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.info-card p{font-size:13px;color:var(--muted2);line-height:1.6}
+
+/* Footer */
+.footer{margin-top:44px;font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;letter-spacing:.04em;line-height:2}
+.footer a{color:var(--accent);text-decoration:none}
+.footer a:hover{text-decoration:underline}
+
+/* Empty state */
+.empty{text-align:center;padding:36px 20px;font-family:var(--mono);font-size:13px;color:var(--muted)}
+
+/* Responsive */
+@media(max-width:520px){
+  .wrap{padding:24px 16px 60px}
+  .inp-row{flex-direction:column}
+  .paste-btn{height:44px}
+  .nav-tab{font-size:11px;padding:8px 8px}
+  .sel-row{flex-direction:column}
+  .sum-grid{grid-template-columns:1fr}
+}
+</style>
 </head>
 <body>
-<h1>CryptoByB — Coming Soon</h1>
+<div class="wrap">
+
+  <header class="hdr">
+    <a class="logo" href="/">
+      <div class="logo-icon">B</div>
+      <div>
+        <div class="logo-name">CryptoByB</div>
+        <div class="logo-tag">ON-CHAIN SECURITY</div>
+      </div>
+    </a>
+  </header>
+
+  <nav class="nav">
+    <button class="nav-tab active" data-tab="blacklist">Blacklist Check</button>
+    <button class="nav-tab" data-tab="tracer">TX Tracer</button>
+    <button class="nav-tab" data-tab="batch">Batch Check</button>
+  </nav>
+
+  <!-- ══ BLACKLIST TAB ══════════════════════════════════════════════════════ -->
+  <div class="tab active" id="tab-blacklist">
+
+    <div class="token-row">
+      <button class="tok-btn active" id="bl-usdt" onclick="setToken('USDT')">
+        <span class="tok-dot" style="background:#26A17B"></span>USDT
+      </button>
+      <button class="tok-btn" id="bl-usdc" onclick="setToken('USDC')">
+        <span class="tok-dot" style="background:#2775CA"></span>USDC
+      </button>
+    </div>
+
+    <div class="inp-row">
+      <input class="addr-inp" id="blInput" placeholder="Enter wallet address (0x… or T…)" autocomplete="off" spellcheck="false">
+      <button class="paste-btn" onclick="doPaste('blInput')">Paste</button>
+    </div>
+    <div class="err-box" id="blErr"></div>
+    <button class="main-btn" id="blBtn" onclick="runBlacklist()">Check Blacklist →</button>
+
+    <div class="res-section" id="blResults">
+      <div class="res-hdr">
+        <span class="sec-label">Scan Results</span>
+        <div class="res-actions">
+          <span class="addr-chip" id="blChip"></span>
+          <button class="act-btn" id="blCopy" onclick="copyAddr()">Copy</button>
+          <button class="act-btn" id="blShare" onclick="shareLink()">Share</button>
+        </div>
+      </div>
+      <div class="res-rows" id="blRows"></div>
+      <div class="banner" id="blBanner"></div>
+    </div>
+
+    <div class="hist-section" id="histSection">
+      <div class="hist-hdr">
+        <span class="sec-label">Recent Checks</span>
+        <button class="clear-btn" onclick="clearHist()">Clear all</button>
+      </div>
+      <div class="hist-list" id="histList"></div>
+    </div>
+
+    <div class="info-section">
+      <div class="info-grid">
+        <div class="info-card">
+          <h3>What is blacklisting?</h3>
+          <p>Tether and Circle can freeze addresses suspected of fraud, sanctions, or theft. Blacklisted addresses cannot send or receive tokens.</p>
+        </div>
+        <div class="info-card">
+          <h3>How it works</h3>
+          <p>Calls blacklist functions directly on each stablecoin smart contract via public RPC nodes. No data is stored.</p>
+        </div>
+        <div class="info-card">
+          <h3>Covered chains</h3>
+          <p>USDT: Ethereum, Tron, Avalanche, Polygon, Arbitrum, Optimism. USDC: Ethereum, Arbitrum, Base, Optimism, Polygon, Avalanche.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TX TRACER TAB ══════════════════════════════════════════════════════ -->
+  <div class="tab" id="tab-tracer">
+
+    <div>
+      <div class="inp-label">Source Wallet</div>
+      <div class="inp-row">
+        <input class="addr-inp" id="srcInput" placeholder="Source address (0x… or T…)" autocomplete="off" spellcheck="false">
+        <button class="paste-btn" onclick="doPaste('srcInput')">Paste</button>
+      </div>
+    </div>
+    <div>
+      <div class="inp-label">Destination Wallet</div>
+      <div class="inp-row" style="margin-bottom:12px">
+        <input class="addr-inp" id="dstInput" placeholder="Destination address (0x… or T…)" autocomplete="off" spellcheck="false">
+        <button class="paste-btn" onclick="doPaste('dstInput')">Paste</button>
+      </div>
+    </div>
+
+    <div class="sel-row">
+      <div>
+        <div class="inp-label">Token</div>
+        <select class="sel-field" id="trToken" onchange="updateTraceChains()">
+          <option value="USDT">USDT</option>
+          <option value="USDC">USDC</option>
+        </select>
+      </div>
+      <div>
+        <div class="inp-label">Chain</div>
+        <select class="sel-field" id="trChain"></select>
+      </div>
+    </div>
+
+    <div class="err-box" id="trErr"></div>
+    <button class="main-btn" id="trBtn" onclick="runTrace()">Trace Transactions →</button>
+    <div id="trResults"></div>
+
+  </div>
+
+  <!-- ══ BATCH TAB ══════════════════════════════════════════════════════════ -->
+  <div class="tab" id="tab-batch">
+
+    <div class="token-row" style="margin-bottom:14px">
+      <button class="tok-btn active" id="bt-usdt" onclick="setBatchTok('USDT')">
+        <span class="tok-dot" style="background:#26A17B"></span>USDT
+      </button>
+      <button class="tok-btn" id="bt-usdc" onclick="setBatchTok('USDC')">
+        <span class="tok-dot" style="background:#2775CA"></span>USDC
+      </button>
+    </div>
+
+    <textarea class="batch-ta" id="batchInput" placeholder="One address per line&#10;0x742d35Cc6634C0532925a3b844Bc454e4438f44e&#10;TKzxdSv2FZKQrEqkKVgp5DcwEXBEKMg2Ax&#10;0x…"></textarea>
+    <div class="err-box" id="btErr"></div>
+    <button class="main-btn" id="btBtn" onclick="runBatch()">Check All Addresses →</button>
+    <div id="btResults"></div>
+
+  </div>
+
+  <div class="footer">
+    On-chain data only · No data stored · Read-only calls<br>
+    <a href="https://cryptobyb.github.io">CryptoByB</a> · Built for the on-chain community
+  </div>
+
+</div>
+<script>
+// ── Chain config ──────────────────────────────────────────────────────────────
+const CHAINS = {
+  USDT: [
+    { id:'eth',      name:'Ethereum',  short:'ETH',  type:'evm',  decimals:6, sig:'0x59bf1abe', contract:'0xdAC17F958D2ee523a2206206994597C13D831ec7', rpcs:['https://eth.llamarpc.com','https://cloudflare-eth.com','https://ethereum-rpc.publicnode.com'], explorer:'https://etherscan.io' },
+    { id:'tron',     name:'Tron',      short:'TRX',  type:'tron', decimals:6, contract:'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', explorer:'https://tronscan.org' },
+    { id:'avax',     name:'Avalanche', short:'AVAX', type:'evm',  decimals:6, sig:'0xfe575a87', contract:'0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7', rpcs:['https://api.avax.network/ext/bc/C/rpc','https://rpc.ankr.com/avalanche','https://avalanche-c-chain-rpc.publicnode.com'], explorer:'https://snowtrace.io' },
+    { id:'polygon',  name:'Polygon',   short:'POL',  type:'evm',  decimals:6, sig:'0xfe575a87', contract:'0xc2132D05D31c914a87C6611C10748AEb04B58e8F', rpcs:['https://polygon-rpc.com','https://rpc.ankr.com/polygon','https://polygon-bor-rpc.publicnode.com'], explorer:'https://polygonscan.com' },
+    { id:'arbitrum', name:'Arbitrum',  short:'ARB',  type:'evm',  decimals:6, sig:'0xfe575a87', contract:'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', rpcs:['https://arb1.arbitrum.io/rpc','https://rpc.ankr.com/arbitrum','https://arbitrum-one-rpc.publicnode.com'], explorer:'https://arbiscan.io' },
+    { id:'optimism', name:'Optimism',  short:'OP',   type:'evm',  decimals:6, sig:'0xfe575a87', contract:'0x94b008aA00579c1307B0EF2c499aD98a8ce58e58', rpcs:['https://mainnet.optimism.io','https://rpc.ankr.com/optimism','https://optimism-rpc.publicnode.com'], explorer:'https://optimistic.etherscan.io' },
+  ],
+  USDC: [
+    { id:'eth',      name:'Ethereum',  short:'ETH',  type:'evm',  decimals:6, sig:'0xfe575a87', contract:'0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', rpcs:['https://eth.llamarpc.com','https://cloudflare-eth.com','https://ethereum-rpc.publicnode.com'], explorer:'https://etherscan.io' },
+    { id:'arbitrum', name:'Arbitrum',  short:'ARB',  type:'evm',  decimals:6, sig:'0xfe575a87', contract:'0xaf88d065e77c8cC2239327C5EDb3A432268e5831', rpcs:['https://arb1.arbitrum.io/rpc','https://rpc.ankr.com/arbitrum','https://arbitrum-one-rpc.publicnode.com'], explorer:'https://arbiscan.io' },
+    { id:'base',     name:'Base',      short:'BASE', type:'evm',  decimals:6, sig:'0xfe575a87', contract:'0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', rpcs:['https://mainnet.base.org','https://rpc.ankr.com/base','https://base-rpc.publicnode.com'], explorer:'https://basescan.org' },
+    { id:'optimism', name:'Optimism',  short:'OP',   type:'evm',  decimals:6, sig:'0xfe575a87', contract:'0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85', rpcs:['https://mainnet.optimism.io','https://rpc.ankr.com/optimism','https://optimism-rpc.publicnode.com'], explorer:'https://optimistic.etherscan.io' },
+    { id:'polygon',  name:'Polygon',   short:'POL',  type:'evm',  decimals:6, sig:'0xfe575a87', contract:'0x3c499c542cEF5E3811e1192cE70d8cC03d5c3359', rpcs:['https://polygon-rpc.com','https://rpc.ankr.com/polygon','https://polygon-bor-rpc.publicnode.com'], explorer:'https://polygonscan.com' },
+    { id:'avax',     name:'Avalanche', short:'AVAX', type:'evm',  decimals:6, sig:'0xfe575a87', contract:'0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E', rpcs:['https://api.avax.network/ext/bc/C/rpc','https://rpc.ankr.com/avalanche','https://avalanche-c-chain-rpc.publicnode.com'], explorer:'https://snowtrace.io' },
+  ]
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let blToken = 'USDT', batchTok = 'USDT', currentAddr = '';
+let hist = JSON.parse(sessionStorage.getItem('cbk_h') || '[]');
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+const isEvm  = a => /^0x[0-9a-fA-F]{40}$/.test(a);
+const isTron = a => /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(a);
+const short  = a => a.length > 16 ? a.slice(0,8)+'…'+a.slice(-6) : a;
+const pad    = h => h.replace('0x','').toLowerCase().padStart(64,'0');
+const fmt    = (v,d) => (Number(v)/10**d).toLocaleString(undefined,{maximumFractionDigits:2});
+
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function b58Dec(s){ let n=0n; for(const c of s){ const i=B58.indexOf(c); if(i<0) throw new Error('bad b58'); n=n*58n+BigInt(i); } return n.toString(16).padStart(50,'0'); }
+
+async function rpc(rpcs, method, params){
+  let last;
+  for(const url of rpcs){
+    try{
+      const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',method,params,id:1})});
+      const j=await r.json();
+      if(j.error) throw new Error(j.error.message);
+      return j.result;
+    } catch(e){ last=e; }
+  }
+  throw last||new Error('All RPCs failed');
+}
+
+async function checkEvm(chain, addr){
+  const res = await rpc(chain.rpcs,'eth_call',[{to:chain.contract,data:chain.sig+pad(addr)},'latest']);
+  if(!res||res==='0x') return false;
+  return BigInt(res)!==0n;
+}
+
+async function checkTron(addr){
+  const hex = b58Dec(addr).substring(2,42).padStart(64,'0');
+  const r = await fetch('https://api.trongrid.io/wallet/triggerconstantcontract',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({owner_address:'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',contract_address:'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',function_selector:'getBlackListStatus(address)',parameter:hex,visible:true})
+  });
+  if(!r.ok) throw new Error('TronGrid HTTP '+r.status);
+  const j=await r.json();
+  if(j.Error) throw new Error(j.Error);
+  if(!j.constant_result?.[0]) throw new Error('No result');
+  return BigInt('0x'+j.constant_result[0])!==0n;
+}
+
+// ── Tab nav ───────────────────────────────────────────────────────────────────
+document.querySelectorAll('.nav-tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Token toggles ─────────────────────────────────────────────────────────────
+function setToken(t){
+  blToken=t;
+  document.getElementById('bl-usdt').classList.toggle('active',t==='USDT');
+  document.getElementById('bl-usdc').classList.toggle('active',t==='USDC');
+}
+function setBatchTok(t){
+  batchTok=t;
+  document.getElementById('bt-usdt').classList.toggle('active',t==='USDT');
+  document.getElementById('bt-usdc').classList.toggle('active',t==='USDC');
+}
+
+// ── Paste ─────────────────────────────────────────────────────────────────────
+async function doPaste(id){
+  try{ document.getElementById(id).value=(await navigator.clipboard.readText()).trim(); }
+  catch(e){ document.getElementById(id).focus(); }
+}
+
+// ── Copy / share ──────────────────────────────────────────────────────────────
+function copyAddr(){
+  if(!currentAddr) return;
+  navigator.clipboard.writeText(currentAddr).then(()=>{
+    const b=document.getElementById('blCopy');
+    b.textContent='Copied!'; b.classList.add('copied');
+    setTimeout(()=>{ b.textContent='Copy'; b.classList.remove('copied'); },2000);
+  });
+}
+function shareLink(){
+  if(!currentAddr) return;
+  const url=location.origin+location.pathname+'?address='+encodeURIComponent(currentAddr)+'&token='+blToken;
+  navigator.clipboard.writeText(url).then(()=>{
+    const b=document.getElementById('blShare');
+    b.textContent='Copied!'; b.classList.add('copied');
+    setTimeout(()=>{ b.textContent='Share'; b.classList.remove('copied'); },2000);
+  });
+}
+
+// ── History ───────────────────────────────────────────────────────────────────
+function saveHist(addr,token,outcome){
+  hist=hist.filter(h=>!(h.addr===addr&&h.token===token));
+  hist.unshift({addr,token,outcome,time:Date.now()});
+  if(hist.length>12) hist=hist.slice(0,12);
+  sessionStorage.setItem('cbk_h',JSON.stringify(hist));
+  renderHist();
+}
+function renderHist(){
+  const sec=document.getElementById('histSection');
+  const list=document.getElementById('histList');
+  if(!hist.length){ sec.style.display='none'; return; }
+  sec.style.display='block';
+  list.innerHTML='';
+  hist.forEach((h,i)=>{
+    const mins=Math.floor((Date.now()-h.time)/60000);
+    const ts=mins<1?'just now':mins<60?`${mins}m ago`:`${Math.floor(mins/60)}h ago`;
+    const el=document.createElement('div');
+    el.className='hist-item';
+    el.innerHTML=`<span class="hist-addr">${short(h.addr)}</span>
+      <div class="hist-meta">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted);background:var(--surface2);padding:2px 6px;border-radius:3px">${h.token}</span>
+        <span class="hist-time">${ts}</span>
+        <span class="hist-badge ${h.outcome}">${h.outcome==='safe'?'Clean':h.outcome==='blacklisted'?'Blacklisted':'Error'}</span>
+        <button class="hist-rm" title="Remove">×</button>
+      </div>`;
+    el.querySelector('.hist-rm').addEventListener('click',e=>{ e.stopPropagation(); hist.splice(i,1); sessionStorage.setItem('cbk_h',JSON.stringify(hist)); renderHist(); });
+    el.addEventListener('click',()=>{ document.getElementById('blInput').value=h.addr; setToken(h.token); runBlacklist(); });
+    list.appendChild(el);
+  });
+}
+function clearHist(){ hist=[]; sessionStorage.removeItem('cbk_h'); renderHist(); }
+
+// ── Blacklist check ───────────────────────────────────────────────────────────
+async function runBlacklist(addrOverride){
+  const input=document.getElementById('blInput');
+  const btn=document.getElementById('blBtn');
+  const errBox=document.getElementById('blErr');
+  const resSec=document.getElementById('blResults');
+  const rows=document.getElementById('blRows');
+  const banner=document.getElementById('blBanner');
+  const chip=document.getElementById('blChip');
+
+  const addr=(addrOverride||input.value).trim();
+  if(addrOverride) input.value=addr;
+
+  errBox.style.display='none';
+  banner.style.display='none';
+  rows.innerHTML='';
+
+  if(!addr){ errBox.textContent='Please enter a wallet address.'; errBox.style.display='block'; return; }
+
+  const evm=isEvm(addr), tron=isTron(addr);
+  if(!evm&&!tron){ errBox.textContent='Invalid address. Enter a valid Ethereum (0x…) or Tron (T…) address.'; errBox.style.display='block'; return; }
+
+  if(tron&&blToken==='USDC'){ errBox.textContent='USDC is not available on Tron. Please use an Ethereum address or switch to USDT.'; errBox.style.display='block'; return; }
+
+  currentAddr=addr;
+  btn.disabled=true; btn.textContent='Scanning…';
+  resSec.style.display='block';
+  chip.textContent=short(addr);
+
+  const url=new URL(location);
+  url.searchParams.set('address',addr); url.searchParams.set('token',blToken);
+  history.replaceState({},'',url);
+
+  const chains=CHAINS[blToken].filter(c=>evm?c.type==='evm':c.type==='tron');
+
+  chains.forEach(c=>{
+    const row=document.createElement('div');
+    row.className='res-row'; row.id='row-'+c.id;
+    row.innerHTML=`<span class="chain-badge">${c.short}</span><span class="chain-name">${c.name}</span><div class="row-status scanning"><div class="spin"></div><span>Scanning</span></div>`;
+    rows.appendChild(row);
+  });
+
+  const results=await Promise.all(chains.map(async c=>{
+    try{
+      const bl=c.type==='tron'?await checkTron(addr):await checkEvm(c,addr);
+      updateRow(c.id,bl,null); return bl;
+    } catch(e){ updateRow(c.id,null,e.message); return null; }
+  }));
+
+  const def=results.filter(r=>r!==null);
+  const anyBl=def.some(r=>r===true);
+  const allOk=def.length>0&&def.every(r=>r===false);
+  const outcome=anyBl?'blacklisted':allOk?'safe':'error';
+
+  if(anyBl){ banner.className='banner blacklisted'; banner.style.display='flex'; banner.textContent='⚠ This address is blacklisted on one or more contracts.'; }
+  else if(allOk){ banner.className='banner safe'; banner.style.display='flex'; banner.textContent='✓ Address is not blacklisted on any checked contract.'; }
+
+  saveHist(addr,blToken,outcome);
+  btn.disabled=false; btn.textContent='Check Blacklist →';
+}
+
+function updateRow(id,bl,err){
+  const row=document.getElementById('row-'+id); if(!row) return;
+  const st=row.querySelector('.row-status');
+  if(err){ st.className='row-status error'; st.innerHTML='<div class="sdot"></div><span>Error</span>'; }
+  else if(bl){ st.className='row-status blacklisted'; st.innerHTML='<div class="sdot"></div><span>BLACKLISTED</span>'; row.style.background='rgba(239,68,68,0.04)'; }
+  else{ st.className='row-status safe'; st.innerHTML='<div class="sdot"></div><span>CLEAN</span>'; }
+}
+
+document.getElementById('blInput').addEventListener('keydown',e=>{ if(e.key==='Enter') runBlacklist(); });
+
+// ── TX Tracer ─────────────────────────────────────────────────────────────────
+const TRANSFER_TOPIC='0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+function updateTraceChains(){
+  const tok=document.getElementById('trToken').value;
+  const sel=document.getElementById('trChain');
+  sel.innerHTML='';
+  CHAINS[tok].forEach(c=>{
+    const opt=document.createElement('option');
+    opt.value=c.id; opt.textContent=c.name; sel.appendChild(opt);
+  });
+}
+
+async function runTrace(){
+  const src=document.getElementById('srcInput').value.trim();
+  const dst=document.getElementById('dstInput').value.trim();
+  const tok=document.getElementById('trToken').value;
+  const chainId=document.getElementById('trChain').value;
+  const errBox=document.getElementById('trErr');
+  const btn=document.getElementById('trBtn');
+  const res=document.getElementById('trResults');
+
+  errBox.style.display='none'; res.innerHTML='';
+
+  if(!src||!dst){ errBox.textContent='Please enter both source and destination addresses.'; errBox.style.display='block'; return; }
+  if(chainId==='tron'&&(!isTron(src)||!isTron(dst))){ errBox.textContent='Tron tracing requires Tron (T…) addresses.'; errBox.style.display='block'; return; }
+  if(chainId!=='tron'&&(!isEvm(src)||!isEvm(dst))){ errBox.textContent='EVM tracing requires Ethereum (0x…) addresses.'; errBox.style.display='block'; return; }
+
+  btn.disabled=true; btn.textContent='Tracing…';
+  res.innerHTML='<div class="empty">Scanning transaction history…</div>';
+
+  try{
+    const cfg=CHAINS[tok].find(c=>c.id===chainId);
+    if(!cfg) throw new Error('Chain not supported for '+tok);
+
+    let txs=[];
+    if(chainId==='tron') txs=await traceTron(src,dst);
+    else txs=await traceEvm(src,dst,cfg,tok);
+
+    renderTrace(txs,tok,src,dst);
+  } catch(e){
+    res.innerHTML=`<div class="empty" style="color:var(--amber)">⚠ ${e.message}</div>`;
+  }
+  btn.disabled=false; btn.textContent='Trace Transactions →';
+}
+
+async function traceEvm(src,dst,cfg,tok){
+  const latest=BigInt(await rpc(cfg.rpcs,'eth_blockNumber',[]));
+  const range=500000n;
+  const from='0x'+(latest>range?latest-range:0n).toString(16);
+
+  const srcT='0x000000000000000000000000'+src.replace('0x','').toLowerCase();
+  const dstT='0x000000000000000000000000'+dst.replace('0x','').toLowerCase();
+
+  async function getLogs(f,t){
+    try{ return await rpc(cfg.rpcs,'eth_getLogs',[{address:cfg.contract,topics:[TRANSFER_TOPIC,f,t],fromBlock:from,toBlock:'latest'}])||[]; }
+    catch(e){ return []; }
+  }
+
+  const [fwd,rev]=await Promise.all([getLogs(srcT,dstT),getLogs(dstT,srcT)]);
+  const all=[...fwd.map(l=>({...l,dir:'out'})),...rev.map(l=>({...l,dir:'in'}))];
+  all.sort((a,b)=>parseInt(b.blockNumber,16)-parseInt(a.blockNumber,16));
+  return all.map(l=>({ hash:l.transactionHash, block:parseInt(l.blockNumber,16), dir:l.dir, amount:BigInt(l.data), decimals:cfg.decimals, tok, explorer:cfg.explorer }));
+}
+
+async function traceTron(src,dst){
+  const url=`https://api.trongrid.io/v1/accounts/${src}/transactions/trc20?limit=200&contract_address=TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`;
+  const r=await fetch(url,{headers:{'Accept':'application/json'}});
+  if(!r.ok) throw new Error('TronGrid HTTP '+r.status);
+  const j=await r.json();
+  return (j.data||[])
+    .filter(tx=>{ const f=tx.from?.toLowerCase(),t=tx.to?.toLowerCase(),s=src.toLowerCase(),d=dst.toLowerCase(); return (f===s&&t===d)||(f===d&&t===s); })
+    .map(tx=>({ hash:tx.transaction_id, dir:tx.from?.toLowerCase()===src.toLowerCase()?'out':'in', amount:BigInt(tx.value||'0'), decimals:6, tok:'USDT', explorer:'https://tronscan.org', time:tx.block_timestamp }));
+}
+
+function renderTrace(txs,tok,src,dst){
+  const res=document.getElementById('trResults');
+  if(!txs.length){ res.innerHTML=`<div class="empty">No ${tok} transactions found between these addresses in the scanned range.</div>`; return; }
+
+  const dec=txs[0].decimals;
+  const totalOut=txs.filter(t=>t.dir==='out').reduce((s,t)=>s+t.amount,0n);
+  const totalIn=txs.filter(t=>t.dir==='in').reduce((s,t)=>s+t.amount,0n);
+
+  let html=`<div class="sum-grid">
+    <div class="sum-card"><div class="sum-label">Sent (Source → Dest)</div><div class="sum-val" style="color:var(--red)">${fmt(totalOut,dec)} ${tok}</div></div>
+    <div class="sum-card"><div class="sum-label">Received (Dest → Source)</div><div class="sum-val" style="color:var(--green)">${fmt(totalIn,dec)} ${tok}</div></div>
+  </div>
+  <div class="sec-label" style="margin-bottom:10px">${txs.length} Transaction${txs.length!==1?'s':''} Found</div>
+  <div class="tx-list">`;
+
+  txs.slice(0,50).forEach(tx=>{
+    const explorerUrl=tx.explorer.includes('tron')?`${tx.explorer}/#/transaction/${tx.hash}`:`${tx.explorer}/tx/${tx.hash}`;
+    html+=`<div class="tx-item">
+      <div class="tx-top">
+        <span class="tx-dir ${tx.dir}">${tx.dir==='out'?'OUT →':'← IN'}</span>
+        <span class="tx-amt">${fmt(tx.amount,tx.decimals)} ${tx.tok}</span>
+      </div>
+      <a class="tx-hash" href="${explorerUrl}" target="_blank">${tx.hash.slice(0,10)}…${tx.hash.slice(-6)}</a>
+      ${tx.block?`<span class="tx-time">Block #${tx.block.toLocaleString()}</span>`:''}
+    </div>`;
+  });
+
+  html+='</div>';
+  if(txs.length>50) html+=`<div class="empty" style="padding:16px">Showing 50 of ${txs.length} transactions</div>`;
+  res.innerHTML=html;
+}
+
+// ── Batch checker ─────────────────────────────────────────────────────────────
+async function runBatch(){
+  const raw=document.getElementById('batchInput').value.trim();
+  const errBox=document.getElementById('btErr');
+  const btn=document.getElementById('btBtn');
+  const res=document.getElementById('btResults');
+
+  errBox.style.display='none'; res.innerHTML='';
+  if(!raw){ errBox.textContent='Please enter at least one address.'; errBox.style.display='block'; return; }
+
+  const addrs=[...new Set(raw.split('\n').map(a=>a.trim()).filter(a=>a))];
+  const valid=addrs.filter(a=>isEvm(a)||isTron(a));
+  const skipped=addrs.length-valid.length;
+
+  if(!valid.length){ errBox.textContent='No valid addresses found.'; errBox.style.display='block'; return; }
+
+  btn.disabled=true; btn.textContent=`Checking ${valid.length} addresses…`;
+
+  res.innerHTML=`<table class="btable"><thead><tr><th>#</th><th>Address</th><th>Type</th><th>Status</th></tr></thead><tbody id="btBody"></tbody></table>${skipped?`<div style="margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--amber)">⚠ ${skipped} invalid address${skipped!==1?'es':''} skipped</div>`:''}`;
+
+  const body=document.getElementById('btBody');
+  valid.forEach((addr,i)=>{
+    const tr=document.createElement('tr');
+    tr.id='btr-'+i;
+    tr.innerHTML=`<td style="color:var(--muted)">${i+1}</td><td style="font-family:var(--mono);font-size:12px;color:var(--accent)">${short(addr)}</td><td style="font-family:var(--mono);font-size:11px;color:var(--muted2)">${isEvm(addr)?'EVM':'Tron'}</td><td><div class="spin"></div></td>`;
+    body.appendChild(tr);
+  });
+
+  await Promise.all(valid.map(async(addr,i)=>{
+    const chains=CHAINS[batchTok].filter(c=>isEvm(addr)?c.type==='evm':c.type==='tron');
+    const cell=document.getElementById('btr-'+i).cells[3];
+    if(!chains.length){ cell.innerHTML=`<span style="font-family:var(--mono);font-size:11px;color:var(--muted)">N/A</span>`; return; }
+    try{
+      const results=await Promise.all(chains.map(async c=>{ try{ return c.type==='tron'?await checkTron(addr):await checkEvm(c,addr); } catch(e){ return null; } }));
+      const anyBl=results.some(r=>r===true);
+      const allOk=results.filter(r=>r!==null).every(r=>r===false);
+      if(anyBl) cell.innerHTML=`<span style="font-family:var(--mono);font-size:11px;font-weight:600;color:var(--red);background:var(--red-dim);padding:3px 10px;border-radius:3px">● BLACKLISTED</span>`;
+      else if(allOk) cell.innerHTML=`<span style="font-family:var(--mono);font-size:11px;font-weight:600;color:var(--green);background:var(--green-dim);padding:3px 10px;border-radius:3px">● CLEAN</span>`;
+      else cell.innerHTML=`<span style="font-family:var(--mono);font-size:11px;color:var(--amber)">⚠ Partial</span>`;
+    } catch(e){ cell.innerHTML=`<span style="font-family:var(--mono);font-size:11px;color:var(--amber)">Error</span>`; }
+  }));
+
+  btn.disabled=false; btn.textContent='Check All Addresses →';
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+updateTraceChains();
+renderHist();
+
+const p=new URLSearchParams(location.search);
+const ua=p.get('address'), ut=p.get('token');
+if(ut==='USDT'||ut==='USDC') setToken(ut);
+if(ua){ document.getElementById('blInput').value=ua; runBlacklist(ua); }
+</script>
 </body>
 </html>
