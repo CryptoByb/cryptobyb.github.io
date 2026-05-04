@@ -569,13 +569,16 @@ function clearHist(){ hist=[]; sessionStorage.removeItem('cbk_h'); renderHist();
 // results: array of boolean|null — true=blacklisted, false=clean, null=error
 // Returns { level: 'LOW'|'MEDIUM'|'HIGH'|'CRITICAL', cssClass: 'risk-low'|..., description: string }
 // HIGH tier reserved for Phase 3+ (unlimited token approvals); unreachable until approvals scanner ships.
-function computeRisk(results){
+function computeRisk(results, unlimitedCount){
+  unlimitedCount = unlimitedCount || 0;
   const defined=results.filter(r=>r!==null);
   const anyBlacklisted=results.some(r=>r===true);
   const anyError=results.some(r=>r===null);
 
   if(anyBlacklisted)
     return{level:'CRITICAL',cssClass:'risk-critical',description:'Address blacklisted on one or more chains'};
+  if(unlimitedCount>0)
+    return{level:'HIGH',cssClass:'risk-high',description:'Unlimited token approval(s) detected — review active allowances'};
   if(anyError&&defined.length>0)
     return{level:'MEDIUM',cssClass:'risk-medium',description:'Partial data — some chains did not respond'};
   if(defined.length===0)
@@ -659,7 +662,9 @@ async function runBlacklist(addrOverride){
   if(anyBl){ banner.className='banner blacklisted'; banner.style.display='flex'; banner.textContent='⚠ This address is blacklisted on one or more contracts.'; }
   else if(allOk){ banner.className='banner safe'; banner.style.display='flex'; banner.textContent='✓ Address is not blacklisted on any checked contract.'; }
 
-  const risk=computeRisk(results);
+  // Silently fetch Tron approvals — only for Tron addresses, does not block display
+  const unlimitedCount = tron ? await fetchTronApprovals(addr) : 0;
+  const risk=computeRisk(results, unlimitedCount);
   rb.className='risk-banner '+risk.cssClass;
   document.getElementById('blRiskLevel').textContent=risk.level;
   document.getElementById('blRiskLabel').textContent=risk.description;
