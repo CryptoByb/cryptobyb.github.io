@@ -763,63 +763,134 @@ async function runTrace(){
 
 async function traceEvm(src,dst,cfg,tok){
   const latest=BigInt(await rpc(cfg.rpcs,'eth_blockNumber',[]));
-  const range=500000n;
-  const from='0x'+(latest>range?latest-range:0n).toString(16);
-
   const srcT='0x000000000000000000000000'+src.replace('0x','').toLowerCase();
   const dstT='0x000000000000000000000000'+dst.replace('0x','').toLowerCase();
+  const STEP=50000n, MAX_STEPS=4;
+  let all=[], hi=latest;
 
-  async function getLogs(f,t){
-    try{ return await rpc(cfg.rpcs,'eth_getLogs',[{address:cfg.contract,topics:[TRANSFER_TOPIC,f,t],fromBlock:from,toBlock:'latest'}])||[]; }
+  async function getLogs(f,t,from,to){
+    try{ return await rpc(cfg.rpcs,'eth_getLogs',[{address:cfg.contract,topics:[TRANSFER_TOPIC,f,t],fromBlock:from,toBlock:to}])||[]; }
     catch(e){ return []; }
   }
 
-  const [fwd,rev]=await Promise.all([getLogs(srcT,dstT),getLogs(dstT,srcT)]);
-  const all=[...fwd.map(l=>({...l,dir:'out'})),...rev.map(l=>({...l,dir:'in'}))];
+  for(let i=0;i<MAX_STEPS&&all.length<20;i++){
+    const lo=hi>STEP?hi-STEP:0n;
+    const from='0x'+lo.toString(16), to='0x'+hi.toString(16);
+    const [fwd,rev]=await Promise.all([getLogs(srcT,dstT,from,to),getLogs(dstT,srcT,from,to)]);
+    const chunk=[...fwd.map(l=>({...l,dir:'out'})),...rev.map(l=>({...l,dir:'in'}))];
+    all=[...all,...chunk];
+    if(lo===0n) break;
+    hi=lo-1n;
+  }
+
   all.sort((a,b)=>parseInt(b.blockNumber,16)-parseInt(a.blockNumber,16));
-  return all.map(l=>({ hash:l.transactionHash, block:parseInt(l.blockNumber,16), dir:l.dir, amount:BigInt(l.data), decimals:cfg.decimals, tok, explorer:cfg.explorer }));
+  return all.slice(0,20).map(l=>({
+    hash:l.transactionHash,
+    block:parseInt(l.blockNumber,16),
+    dir:l.dir,
+    amount:BigInt(l.data),
+    decimals:cfg.decimals,
+    tok,
+    explorer:cfg.explorer
+  }));
 }
 
 async function traceTron(src,dst){
-  const url=`https://api.trongrid.io/v1/accounts/${src}/transactions/trc20?limit=200&contract_address=TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`;
+  const contract='TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
+  const url='https://apilist.tronscanapi.com/api/token_trc20/transfers?limit=200&start=0&sort=-timestamp'
+    +'&address='+encodeURIComponent(src)+'&contract_address='+encodeURIComponent(contract);
   const r=await fetch(url,{headers:{'Accept':'application/json'}});
-  if(!r.ok) throw new Error('TronGrid HTTP '+r.status);
+  if(!r.ok) throw new Error('TronScan HTTP '+r.status);
   const j=await r.json();
-  return (j.data||[])
-    .filter(tx=>{ const f=tx.from?.toLowerCase(),t=tx.to?.toLowerCase(),s=src.toLowerCase(),d=dst.toLowerCase(); return (f===s&&t===d)||(f===d&&t===s); })
-    .map(tx=>({ hash:tx.transaction_id, dir:tx.from?.toLowerCase()===src.toLowerCase()?'out':'in', amount:BigInt(tx.value||'0'), decimals:6, tok:'USDT', explorer:'https://tronscan.org', time:tx.block_timestamp }));
+  const transfers=Array.isArray(j.token_transfers)?j.token_transfers:(Array.isArray(j.data)?j.data:[]);
+  const s=src.toLowerCase(), d=dst.toLowerCase();
+  return transfers
+    .filter(tx=>{ const f=(tx.from_address||tx.from||'').toLowerCase(), t=(tx.to_address||tx.to||'').toLowerCase(); return (f===s&&t===d)||(f===d&&t===s); })
+    .slice(0,20)
+    .map(tx=>{
+      const f=(tx.from_address||tx.from||'').toLowerCase();
+      return { hash:tx.transaction_id, dir:f===s?'out':'in', amount:BigInt(tx.quant||tx.value||'0'), decimals:6, tok:'USDT', explorer:'https://tronscan.org', time:tx.block_ts||tx.block_timestamp||null };
+    });
 }
 
 function renderTrace(txs,tok,src,dst){
   const res=document.getElementById('trResults');
-  if(!txs.length){ res.innerHTML=`<div class="empty">No ${tok} transactions found between these addresses in the scanned range.</div>`; return; }
+  res.innerHTML='';
+
+  if(!txs.length){
+    const empty=document.createElement('div');
+    empty.className='empty';
+    empty.textContent='No '+tok+' transactions found between these addresses in the scanned range.';
+    res.appendChild(empty);
+    return;
+  }
 
   const dec=txs[0].decimals;
   const totalOut=txs.filter(t=>t.dir==='out').reduce((s,t)=>s+t.amount,0n);
   const totalIn=txs.filter(t=>t.dir==='in').reduce((s,t)=>s+t.amount,0n);
 
-  let html=`<div class="sum-grid">
-    <div class="sum-card"><div class="sum-label">Sent (Source → Dest)</div><div class="sum-val" style="color:var(--red)">${fmt(totalOut,dec)} ${tok}</div></div>
-    <div class="sum-card"><div class="sum-label">Received (Dest → Source)</div><div class="sum-val" style="color:var(--green)">${fmt(totalIn,dec)} ${tok}</div></div>
-  </div>
-  <div class="sec-label" style="margin-bottom:10px">${txs.length} Transaction${txs.length!==1?'s':''} Found</div>
-  <div class="tx-list">`;
+  const grid=document.createElement('div');
+  grid.className='sum-grid';
+  [{label:'Sent (Source → Dest)',val:fmt(totalOut,dec)+' '+tok,color:'var(--red)'},
+   {label:'Received (Dest → Source)',val:fmt(totalIn,dec)+' '+tok,color:'var(--green)'}].forEach(function(c){
+    const card=document.createElement('div'); card.className='sum-card';
+    const lbl=document.createElement('div'); lbl.className='sum-label'; lbl.textContent=c.label;
+    const val=document.createElement('div'); val.className='sum-val'; val.style.color=c.color; val.textContent=c.val;
+    card.appendChild(lbl); card.appendChild(val); grid.appendChild(card);
+  });
+  res.appendChild(grid);
 
-  txs.slice(0,50).forEach(tx=>{
-    const explorerUrl=tx.explorer.includes('tron')?`${tx.explorer}/#/transaction/${tx.hash}`:`${tx.explorer}/tx/${tx.hash}`;
-    html+=`<div class="tx-item">
-      <div class="tx-top">
-        <span class="tx-dir ${tx.dir}">${tx.dir==='out'?'OUT →':'← IN'}</span>
-        <span class="tx-amt">${fmt(tx.amount,tx.decimals)} ${tx.tok}</span>
-      </div>
-      <a class="tx-hash" href="${explorerUrl}" target="_blank">${tx.hash.slice(0,10)}…${tx.hash.slice(-6)}</a>
-      ${tx.block?`<span class="tx-time">Block #${tx.block.toLocaleString()}</span>`:''}
-    </div>`;
+  const secLabel=document.createElement('div');
+  secLabel.className='sec-label';
+  secLabel.style.marginBottom='10px';
+  secLabel.textContent=txs.length+' Transaction'+(txs.length!==1?'s':'')+' Found';
+  res.appendChild(secLabel);
+
+  const list=document.createElement('div');
+  list.className='tx-list';
+
+  txs.slice(0,20).forEach(function(tx){
+    const item=document.createElement('div'); item.className='tx-item';
+
+    const top=document.createElement('div'); top.className='tx-top';
+    const dir=document.createElement('span'); dir.className='tx-dir '+tx.dir;
+    dir.textContent=tx.dir==='out'?'OUT →':'← IN';
+    const amt=document.createElement('span'); amt.className='tx-amt';
+    amt.textContent=fmt(tx.amount,tx.decimals)+' '+tx.tok;
+    top.appendChild(dir); top.appendChild(amt);
+    item.appendChild(top);
+
+    const explorerUrl=tx.explorer.includes('tron')
+      ?tx.explorer+'/#/transaction/'+tx.hash
+      :tx.explorer+'/tx/'+tx.hash;
+    const link=document.createElement('a');
+    link.className='tx-hash'; link.href=explorerUrl; link.target='_blank';
+    link.textContent=tx.hash.slice(0,10)+'…'+tx.hash.slice(-6);
+    item.appendChild(link);
+
+    const timeEl=document.createElement('span');
+    timeEl.className='tx-time';
+    if(tx.time){
+      timeEl.textContent=new Date(tx.time).toLocaleString();
+    } else if(tx.block){
+      const GENESIS_TS=1438269988000;
+      const BLOCK_TIME=12000;
+      const est=new Date(GENESIS_TS+(tx.block*BLOCK_TIME));
+      timeEl.textContent=est.toLocaleString()+' (est.)';
+    }
+    if(timeEl.textContent) item.appendChild(timeEl);
+
+    list.appendChild(item);
   });
 
-  html+='</div>';
-  if(txs.length>50) html+=`<div class="empty" style="padding:16px">Showing 50 of ${txs.length} transactions</div>`;
-  res.innerHTML=html;
+  res.appendChild(list);
+
+  if(txs.length>20){
+    const more=document.createElement('div');
+    more.className='empty'; more.style.padding='16px';
+    more.textContent='Showing 20 of '+txs.length+' transactions';
+    res.appendChild(more);
+  }
 }
 
 // ── Batch checker ─────────────────────────────────────────────────────────────
@@ -838,30 +909,108 @@ async function runBatch(){
 
   if(!valid.length){ errBox.textContent='No valid addresses found.'; errBox.style.display='block'; return; }
 
-  btn.disabled=true; btn.textContent=`Checking ${valid.length} addresses…`;
+  btn.disabled=true; btn.textContent='Checking '+valid.length+' addresses…';
 
-  res.innerHTML=`<table class="btable"><thead><tr><th>#</th><th>Address</th><th>Type</th><th>Status</th></tr></thead><tbody id="btBody"></tbody></table>${skipped?`<div style="margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--amber)">⚠ ${skipped} invalid address${skipped!==1?'es':''} skipped</div>`:''}`;
-
-  const body=document.getElementById('btBody');
-  valid.forEach((addr,i)=>{
-    const tr=document.createElement('tr');
-    tr.id='btr-'+i;
-    tr.innerHTML=`<td style="color:var(--muted)">${i+1}</td><td style="font-family:var(--mono);font-size:12px;color:var(--accent)">${short(addr)}</td><td style="font-family:var(--mono);font-size:11px;color:var(--muted2)">${isEvm(addr)?'EVM':'Tron'}</td><td><div class="spin"></div></td>`;
-    body.appendChild(tr);
+  // Build table
+  const table=document.createElement('table');
+  table.className='btable';
+  const thead=document.createElement('thead');
+  const hrow=document.createElement('tr');
+  ['#','Address','Blacklist','Token Approval','Risk'].forEach(function(h){
+    const th=document.createElement('th'); th.textContent=h; hrow.appendChild(th);
   });
+  thead.appendChild(hrow); table.appendChild(thead);
 
-  await Promise.all(valid.map(async(addr,i)=>{
-    const chains=CHAINS[batchTok].filter(c=>isEvm(addr)?c.type==='evm':c.type==='tron');
-    const cell=document.getElementById('btr-'+i).cells[3];
-    if(!chains.length){ cell.innerHTML=`<span style="font-family:var(--mono);font-size:11px;color:var(--muted)">N/A</span>`; return; }
+  const tbody=document.createElement('tbody');
+  valid.forEach(function(addr,i){
+    const tr=document.createElement('tr'); tr.id='btr-'+i;
+
+    const tdN=document.createElement('td'); tdN.style.color='var(--muted)'; tdN.textContent=i+1;
+
+    const tdA=document.createElement('td');
+    const span=document.createElement('span');
+    span.style.cssText='font-family:var(--mono);font-size:12px;color:var(--accent);cursor:pointer';
+    span.textContent=short(addr); span.title=addr;
+    span.addEventListener('click',function(){ navigator.clipboard.writeText(addr).then(function(){ span.style.color='var(--green)'; setTimeout(function(){ span.style.color='var(--accent)'; },1200); }); });
+    tdA.appendChild(span);
+
+    const tdBl=document.createElement('td'); tdBl.id='btr-'+i+'-bl';
+    const spin=document.createElement('div'); spin.className='spin'; tdBl.appendChild(spin);
+
+    const tdAp=document.createElement('td'); tdAp.id='btr-'+i+'-ap';
+    tdAp.style.cssText='font-family:var(--mono);font-size:11px;color:var(--muted)'; tdAp.textContent='—';
+
+    const tdRisk=document.createElement('td'); tdRisk.id='btr-'+i+'-risk';
+    tdRisk.style.cssText='font-family:var(--mono);font-size:11px;color:var(--muted)'; tdRisk.textContent='—';
+
+    tr.appendChild(tdN); tr.appendChild(tdA); tr.appendChild(tdBl); tr.appendChild(tdAp); tr.appendChild(tdRisk);
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  res.appendChild(table);
+
+  if(skipped){
+    const warn=document.createElement('div');
+    warn.style.cssText='margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--amber)';
+    warn.textContent='⚠ '+skipped+' invalid address'+(skipped!==1?'es':'')+' skipped';
+    res.appendChild(warn);
+  }
+
+  await Promise.all(valid.map(async function(addr,i){
+    const tron=isTron(addr);
+    const chains=CHAINS[batchTok].filter(c=>tron?c.type==='tron':c.type==='evm');
+    const blCell=document.getElementById('btr-'+i+'-bl');
+    const apCell=document.getElementById('btr-'+i+'-ap');
+    const riskCell=document.getElementById('btr-'+i+'-risk');
+
+    if(!chains.length){
+      blCell.textContent='N/A'; blCell.style.cssText='font-family:var(--mono);font-size:11px;color:var(--muted)';
+      apCell.textContent='N/A'; riskCell.textContent='N/A';
+      return;
+    }
+
+    const approvalPromise=tron?fetchTronApprovals(addr):Promise.resolve(0);
+    let results;
     try{
-      const results=await Promise.all(chains.map(async c=>{ try{ return c.type==='tron'?await checkTron(addr):await checkEvm(c,addr); } catch(e){ return null; } }));
-      const anyBl=results.some(r=>r===true);
-      const allOk=results.filter(r=>r!==null).every(r=>r===false);
-      if(anyBl) cell.innerHTML=`<span style="font-family:var(--mono);font-size:11px;font-weight:600;color:var(--red);background:var(--red-dim);padding:3px 10px;border-radius:3px">● BLACKLISTED</span>`;
-      else if(allOk) cell.innerHTML=`<span style="font-family:var(--mono);font-size:11px;font-weight:600;color:var(--green);background:var(--green-dim);padding:3px 10px;border-radius:3px">● CLEAN</span>`;
-      else cell.innerHTML=`<span style="font-family:var(--mono);font-size:11px;color:var(--amber)">⚠ Partial</span>`;
-    } catch(e){ cell.innerHTML=`<span style="font-family:var(--mono);font-size:11px;color:var(--amber)">Error</span>`; }
+      results=await Promise.all(chains.map(async function(c){ try{ return c.type==='tron'?await checkTron(addr):await checkEvm(c,addr); } catch(e){ return null; } }));
+    } catch(e){ results=[null]; }
+    const unlimitedCount=await approvalPromise;
+
+    // Blacklist cell
+    const anyBl=results.some(r=>r===true);
+    const allOk=results.filter(r=>r!==null).every(r=>r===false);
+    blCell.innerHTML='';
+    const blSpan=document.createElement('span');
+    blSpan.style.cssText='font-family:var(--mono);font-size:11px;font-weight:600;padding:3px 10px;border-radius:3px';
+    if(anyBl){ blSpan.textContent='● BLACKLISTED'; blSpan.style.color='var(--red)'; blSpan.style.background='var(--red-dim)'; }
+    else if(allOk){ blSpan.textContent='● CLEAN'; blSpan.style.color='var(--green)'; blSpan.style.background='var(--green-dim)'; }
+    else { blSpan.textContent='⚠ ERROR'; blSpan.style.color='var(--amber)'; }
+    blCell.appendChild(blSpan);
+
+    // Token Approval cell
+    if(tron){
+      const rows=lastApprovalData&&Array.isArray(lastApprovalData.data)?lastApprovalData.data:[];
+      const limitedCount=rows.filter(function(r){ return !r.unlimited&&Number(r.balance)>0; }).length;
+      const apSpan=document.createElement('span');
+      apSpan.style.cssText='font-family:var(--mono);font-size:11px;font-weight:600;padding:3px 10px;border-radius:3px';
+      if(unlimitedCount>0){ apSpan.textContent='UNLIMITED'; apSpan.style.color='var(--red)'; apSpan.style.background='var(--red-dim)'; }
+      else if(limitedCount>0){ apSpan.textContent='LIMITED'; apSpan.style.color='var(--amber)'; apSpan.style.background='var(--amber-dim)'; }
+      else { apSpan.textContent='NONE'; apSpan.style.color='var(--muted2)'; }
+      apCell.innerHTML=''; apCell.appendChild(apSpan);
+    } else {
+      apCell.textContent='N/A'; apCell.style.cssText='font-family:var(--mono);font-size:11px;color:var(--muted)';
+    }
+
+    // Risk cell
+    const risk=computeRisk(results,unlimitedCount);
+    const riskColors={'risk-critical':'var(--red)','risk-high':'var(--orange)','risk-medium':'var(--amber)','risk-low':'var(--green)'};
+    const riskBgs={'risk-critical':'var(--red-dim)','risk-high':'var(--orange-dim)','risk-medium':'var(--amber-dim)','risk-low':'var(--green-dim)'};
+    const riskSpan=document.createElement('span');
+    riskSpan.style.cssText='font-family:var(--mono);font-size:11px;font-weight:600;padding:3px 10px;border-radius:3px';
+    riskSpan.textContent=risk.level;
+    riskSpan.style.color=riskColors[risk.cssClass]||'var(--muted)';
+    riskSpan.style.background=riskBgs[risk.cssClass]||'transparent';
+    riskCell.innerHTML=''; riskCell.appendChild(riskSpan);
   }));
 
   btn.disabled=false; btn.textContent='Check All Addresses →';
