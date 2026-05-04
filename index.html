@@ -430,6 +430,7 @@ const CHAINS = {
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let blToken = 'USDT', batchTok = 'USDT', currentAddr = '';
+let lastApprovalData = null; // TronScan response for last Tron address scanned
 let hist = JSON.parse(sessionStorage.getItem('cbk_h') || '[]');
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
@@ -580,6 +581,23 @@ function computeRisk(results){
   if(defined.length===0)
     return{level:'MEDIUM',cssClass:'risk-medium',description:'No chain data returned — RPC errors on all chains'};
   return{level:'LOW',cssClass:'risk-low',description:'Not blacklisted on any checked chain'};
+}
+
+// ── TronScan approval fetch ───────────────────────────────────────────────────
+// Returns count of rows where unlimited===true, or 0 on error.
+// Stores full response in lastApprovalData for the Approvals tab to read.
+async function fetchTronApprovals(addr){
+  lastApprovalData = null;
+  try{
+    const r = await fetch('https://apilist.tronscanapi.com/api/account/approve/list?address='+encodeURIComponent(addr));
+    if(!r.ok) return 0;
+    const j = await r.json();
+    lastApprovalData = j;
+    const rows = Array.isArray(j.data) ? j.data : [];
+    return rows.filter(row => row.unlimited === true).length;
+  } catch(e){
+    return 0;
+  }
 }
 
 // ── Blacklist check ───────────────────────────────────────────────────────────
