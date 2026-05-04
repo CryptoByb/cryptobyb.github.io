@@ -5,11 +5,11 @@
 See: .planning/PROJECT.md (updated 2026-05-04)
 
 **Core value:** A crypto user pastes a wallet address and immediately knows if it's blacklisted or compromised — no signup, no backend, no trust required.
-**Current focus:** v1 complete — planning Phase 4
+**Current focus:** Phase 4 planned — ready to execute
 
 ## Current Phase
 
-**Phase 3: Chain Alignment** — CLOSED as already satisfied (2026-05-04)
+**Phase 4: Token Approvals** — In progress (2026-05-04) — Plan 01 complete
 
 USDC covers 6 chains. USDT covers Ethereum + Tron. No additional chains possible given on-chain contract reality.
 
@@ -20,6 +20,7 @@ USDC covers 6 chains. USDT covers Ethereum + Tron. No additional chains possible
 | 1 | UI Overhaul | ✓ Complete (2026-05-04) |
 | 2 | Wallet Risk Score | ✓ Complete (2026-05-04) |
 | 3 | Chain Alignment | ✓ Closed (2026-05-04) |
+| 4 | Token Approvals | ⏳ In progress — 1/2 plans complete |
 
 ## Key Files
 
