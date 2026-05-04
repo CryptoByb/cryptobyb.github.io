@@ -354,9 +354,13 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 
   <!-- ══ TOKEN APPROVALS TAB ══════════════════════════════════════════════════ -->
   <div class="tab" id="tab-approvals">
-    <div style="text-align:center;padding:60px 20px;font-family:var(--mono);font-size:13px;color:var(--muted);border:1px dashed var(--border);border-radius:var(--r)">
-      Token Approvals scanner — coming soon
+    <div class="inp-row">
+      <input class="addr-inp" id="apprInput" placeholder="Enter Tron address (T…)" autocomplete="off" spellcheck="false">
+      <button class="paste-btn" onclick="doPaste('apprInput')">Paste</button>
     </div>
+    <div class="err-box" id="apprErr"></div>
+    <button class="main-btn" id="apprBtn" onclick="runApprovals()">Scan Approvals →</button>
+    <div id="apprResults"></div>
   </div>
 
   <!-- ══ TX TRACER TAB ══════════════════════════════════════════════════════ -->
@@ -853,6 +857,132 @@ async function runBatch(){
 
   btn.disabled=false; btn.textContent='Check All Addresses →';
 }
+
+// ── Token Approvals scanner ───────────────────────────────────────────────────
+async function runApprovals(){
+  const input = document.getElementById('apprInput');
+  const btn = document.getElementById('apprBtn');
+  const errBox = document.getElementById('apprErr');
+  const results = document.getElementById('apprResults');
+
+  const addr = input.value.trim();
+  errBox.style.display = 'none';
+  results.innerHTML = '';
+
+  if(!addr){
+    errBox.textContent = 'Please enter a Tron address.';
+    errBox.style.display = 'block';
+    return;
+  }
+  if(!isTron(addr)){
+    errBox.textContent = 'Token Approvals requires a Tron address (T…). EVM approvals are not supported yet.';
+    errBox.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Scanning…';
+
+  // Show loading state
+  const loadDiv = document.createElement('div');
+  loadDiv.className = 'appr-loading';
+  const spin = document.createElement('div');
+  spin.className = 'spin';
+  const loadTxt = document.createTextNode('Fetching active approvals…');
+  loadDiv.appendChild(spin);
+  loadDiv.appendChild(loadTxt);
+  results.appendChild(loadDiv);
+
+  try{
+    const r = await fetch('https://apilist.tronscanapi.com/api/account/approve/list?address='+encodeURIComponent(addr));
+    if(!r.ok) throw new Error('TronScan returned HTTP '+r.status);
+    const j = await r.json();
+    const rows = Array.isArray(j.data) ? j.data : [];
+
+    results.innerHTML = '';
+
+    if(!rows.length){
+      const empty = document.createElement('div');
+      empty.className = 'appr-empty';
+      empty.textContent = 'No active approvals found for this address.';
+      results.appendChild(empty);
+      return;
+    }
+
+    // Build table using DOM — no innerHTML with API data (XSS prevention)
+    const table = document.createElement('table');
+    table.className = 'appr-table';
+
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    ['Token', 'Spender Contract', 'Allowance'].forEach(function(col){
+      const th = document.createElement('th');
+      th.textContent = col;
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+
+    rows.forEach(function(row){
+      const tr = document.createElement('tr');
+
+      // Token cell: "SYMBOL — Token Name"
+      const tdToken = document.createElement('td');
+      const abbr = (row.tokenInfo && row.tokenInfo.tokenAbbr) ? row.tokenInfo.tokenAbbr : '—';
+      const name = (row.tokenInfo && row.tokenInfo.tokenName) ? row.tokenInfo.tokenName : '';
+      tdToken.textContent = name ? abbr + ' — ' + name : abbr;
+
+      // Spender cell: truncated with full address in title
+      const tdSpender = document.createElement('td');
+      const spender = row.to_address || '—';
+      tdSpender.textContent = spender.length > 14 ? spender.slice(0,8)+'…'+spender.slice(-6) : spender;
+      tdSpender.title = spender;
+      tdSpender.style.fontFamily = 'var(--mono)';
+      tdSpender.style.color = 'var(--accent)';
+      tdSpender.style.cursor = 'default';
+
+      // Allowance cell
+      const tdAllowance = document.createElement('td');
+      if(row.unlimited === true){
+        const badge = document.createElement('span');
+        badge.className = 'appr-unlimited';
+        badge.textContent = 'UNLIMITED';
+        tdAllowance.appendChild(badge);
+      } else {
+        // Show raw balance string — may be very large, display as-is
+        const balStr = row.balance ? String(row.balance) : '0';
+        // If balance string > 20 chars, truncate with ellipsis for display
+        tdAllowance.textContent = balStr.length > 20 ? balStr.slice(0,20)+'…' : balStr;
+        tdAllowance.style.color = 'var(--muted2)';
+      }
+
+      tr.appendChild(tdToken);
+      tr.appendChild(tdSpender);
+      tr.appendChild(tdAllowance);
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    results.appendChild(table);
+
+    // Update lastApprovalData so blacklist tab risk score reflects manual scan
+    lastApprovalData = j;
+
+  } catch(e){
+    results.innerHTML = '';
+    const errDiv = document.createElement('div');
+    errDiv.className = 'appr-err';
+    errDiv.textContent = 'Could not fetch approvals: ' + e.message;
+    results.appendChild(errDiv);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Scan Approvals →';
+  }
+}
+
+document.getElementById('apprInput').addEventListener('keydown', function(e){ if(e.key==='Enter') runApprovals(); });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 updateTraceChains();
