@@ -9,7 +9,7 @@ See: .planning/PROJECT.md (updated 2026-05-04)
 
 ## Current Phase
 
-**Phase 4: Token Approvals** — In progress (2026-05-04) — Plan 01 complete
+**Phase 4: Token Approvals** — Complete (2026-05-04) — All 2 plans complete
 
 USDC covers 6 chains. USDT covers Ethereum + Tron. No additional chains possible given on-chain contract reality.
 
@@ -20,7 +20,7 @@ USDC covers 6 chains. USDT covers Ethereum + Tron. No additional chains possible
 | 1 | UI Overhaul | ✓ Complete (2026-05-04) |
 | 2 | Wallet Risk Score | ✓ Complete (2026-05-04) |
 | 3 | Chain Alignment | ✓ Closed (2026-05-04) |
-| 4 | Token Approvals | ⏳ In progress — 1/2 plans complete |
+| 4 | Token Approvals | ✓ Complete (2026-05-04) |
 
 ## Key Files
 
