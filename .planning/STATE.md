@@ -5,11 +5,11 @@
 See: .planning/PROJECT.md (updated 2026-05-04)
 
 **Core value:** A crypto user pastes a wallet address and immediately knows if it's blacklisted or compromised — no signup, no backend, no trust required.
-**Current focus:** Phase 2 — Wallet Risk Score
+**Current focus:** Phase 3 — Chain Alignment
 
 ## Current Phase
 
-**Phase 2: Wallet Risk Score** — NOT STARTED
+**Phase 2: Wallet Risk Score** — COMPLETE (1/1 plans done)
 
 After all checks complete, surface a single risk rating (LOW / MEDIUM / HIGH / CRITICAL) that combines all signals into one answer users can act on immediately.
 
@@ -18,7 +18,7 @@ After all checks complete, surface a single risk rating (LOW / MEDIUM / HIGH / C
 | # | Phase | Status |
 |---|-------|--------|
 | 1 | UI Overhaul | ✓ Complete (2026-05-04) |
-| 2 | Wallet Risk Score | Not started |
+| 2 | Wallet Risk Score | ✓ Complete (2026-05-04) |
 | 3 | Chain Alignment | Not started |
 
 ## Key Files

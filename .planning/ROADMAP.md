@@ -7,7 +7,7 @@
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|-----------------|
 | 1 | ~~UI Overhaul~~ | ~~Make the tool look like a real product users trust and share~~ | UI-01 – UI-06 | ✓ Complete (2026-05-04) |
-| 2 | Wallet Risk Score | Give users one clear answer: is this wallet safe? | RISK-01 – RISK-03 | 3 criteria |
+| 2 | ~~Wallet Risk Score~~ | ~~Give users one clear answer: is this wallet safe?~~ | RISK-01 – RISK-03 | ✓ Complete (2026-05-04) |
 | 3 | Chain Alignment | Complete coverage — blacklist check matches approvals scanner | CHAIN-01 | 2 criteria |
 
 ---
@@ -66,6 +66,11 @@ Plans:
 - Risk badge displayed prominently after scan (above result rows)
 - Badge color: CRITICAL=red, HIGH=orange, MEDIUM=amber, LOW=green
 - History items include risk badge so past lookups are scannable
+
+**Plans:** 1 plan
+
+Plans:
+- [x] 02-01-PLAN.md — CSS risk-banner styles + computeRisk() + history badge (RISK-01, RISK-02, RISK-03)
 
 **Success criteria:**
 1. Risk score appears within 500ms of all chain checks completing
