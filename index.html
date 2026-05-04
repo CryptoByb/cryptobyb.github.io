@@ -532,10 +532,10 @@ async function runBlacklist(addrOverride){
   const chains=CHAINS[blToken].filter(c=>evm?c.type==='evm':c.type==='tron');
 
   chains.forEach(c=>{
-    const row=document.createElement('div');
-    row.className='res-row'; row.id='row-'+c.id;
-    row.innerHTML=`<span class="chain-badge">${c.short}</span><span class="chain-name">${c.name}</span><div class="row-status scanning"><div class="spin"></div><span>Scanning</span></div>`;
-    rows.appendChild(row);
+    const block=document.createElement('div');
+    block.className='chain-block scanning'; block.id='row-'+c.id;
+    block.innerHTML=`<div class="block-top"><span class="block-chain">${c.name}</span><span class="block-short">${c.short}</span></div><div class="block-status scanning"><div class="spin"></div><span>Scanning…</span></div>`;
+    rows.appendChild(block);
   });
 
   const results=await Promise.all(chains.map(async c=>{
@@ -558,11 +558,18 @@ async function runBlacklist(addrOverride){
 }
 
 function updateRow(id,bl,err){
-  const row=document.getElementById('row-'+id); if(!row) return;
-  const st=row.querySelector('.row-status');
-  if(err){ st.className='row-status error'; st.innerHTML='<div class="sdot"></div><span>Error</span>'; }
-  else if(bl){ st.className='row-status blacklisted'; st.innerHTML='<div class="sdot"></div><span>BLACKLISTED</span>'; row.style.background='rgba(239,68,68,0.04)'; }
-  else{ st.className='row-status safe'; st.innerHTML='<div class="sdot"></div><span>CLEAN</span>'; }
+  const block=document.getElementById('row-'+id); if(!block) return;
+  block.classList.remove('scanning');
+  const st=block.querySelector('.block-status');
+  if(err){
+    st.className='block-status error'; st.innerHTML='<span>ERROR</span>';
+  } else if(bl){
+    st.className='block-status blacklisted'; st.innerHTML='<span>BLACKLISTED</span>';
+    block.style.borderColor='rgba(239,68,68,0.25)';
+  } else{
+    st.className='block-status safe'; st.innerHTML='<span>CLEAN</span>';
+  }
+  block.classList.add('revealed');
 }
 
 document.getElementById('blInput').addEventListener('keydown',e=>{ if(e.key==='Enter') runBlacklist(); });
