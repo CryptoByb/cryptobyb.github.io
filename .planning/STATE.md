@@ -9,15 +9,16 @@ See: .planning/PROJECT.md (updated 2026-05-04)
 
 ## Current Phase
 
-**Phase 1: UI Overhaul** — NOT STARTED
+**Phase 1: UI Overhaul** — DISCUSS COMPLETE, READY TO PLAN
 
-Ready to begin. Run `/gsd-discuss-phase 1` or `/gsd-plan-phase 1` to start.
+Context locked in `.planning/phases/01-ui-overhaul/01-CONTEXT.md`.
+Run `/gsd-plan-phase 1` to create the execution plan.
 
 ## Phase Status
 
 | # | Phase | Status |
 |---|-------|--------|
-| 1 | UI Overhaul | Not started |
+| 1 | UI Overhaul | Discuss complete — ready to plan |
 | 2 | Wallet Risk Score | Not started |
 | 3 | Chain Alignment | Not started |
 
