@@ -473,6 +473,14 @@ function setToken(t){
   blToken=t;
   document.getElementById('bl-usdt').classList.toggle('active',t==='USDT');
   document.getElementById('bl-usdc').classList.toggle('active',t==='USDC');
+  const addr=(document.getElementById('blInput').value||'').trim();
+  const errBox=document.getElementById('blErr');
+  if(t==='USDC'&&isTron(addr)){
+    errBox.textContent='USDC is not available on Tron. Please use an Ethereum address or switch to USDT.';
+    errBox.style.display='block';
+  } else {
+    errBox.style.display='none';
+  }
 }
 function setBatchTok(t){
   batchTok=t;
