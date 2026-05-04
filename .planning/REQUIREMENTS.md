@@ -3,12 +3,12 @@
 ## v1 Requirements
 
 ### UI & Design
-- [ ] **UI-01**: Tool renders with a premium dark design that feels hand-crafted and distinctive to CryptoByB — not a generic AI-generated template
-- [ ] **UI-02**: Existing brand identity is preserved and strengthened: JetBrains Mono, dark bg (#07080f), blue accent (#4f8ef7)
-- [ ] **UI-03**: UI is fully responsive and works well on mobile (current version breaks on small screens)
-- [ ] **UI-04**: Tab navigation (Blacklist / Approvals / TX Tracer / Batch) is clear and consistent
-- [ ] **UI-05**: Loading states, scan animations, and result transitions feel polished and purposeful
-- [ ] **UI-06**: Result cards/rows communicate status (CLEAN / BLACKLISTED / ERROR) at a glance without requiring the user to read
+- [x] **UI-01**: Tool renders with a premium dark design that feels hand-crafted and distinctive to CryptoByB — not a generic AI-generated template *(Validated Phase 1)*
+- [x] **UI-02**: Existing brand identity is preserved and strengthened: JetBrains Mono, dark bg (#07080f), blue accent (#4f8ef7) *(Validated Phase 1)*
+- [x] **UI-03**: UI is fully responsive and works well on mobile (current version breaks on small screens) *(Validated Phase 1)*
+- [x] **UI-04**: Tab navigation (Blacklist / Approvals / TX Tracer / Batch) is clear and consistent *(Validated Phase 1)*
+- [x] **UI-05**: Loading states, scan animations, and result transitions feel polished and purposeful *(Validated Phase 1)*
+- [x] **UI-06**: Result cards/rows communicate status (CLEAN / BLACKLISTED / ERROR) at a glance without requiring the user to read *(Validated Phase 1)*
 
 ### Wallet Risk Score
 - [ ] **RISK-01**: After all checks complete, a single risk rating (LOW / MEDIUM / HIGH / CRITICAL) is displayed prominently

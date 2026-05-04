@@ -5,29 +5,30 @@
 See: .planning/PROJECT.md (updated 2026-05-04)
 
 **Core value:** A crypto user pastes a wallet address and immediately knows if it's blacklisted or compromised — no signup, no backend, no trust required.
-**Current focus:** Phase 1 — UI Overhaul
+**Current focus:** Phase 2 — Wallet Risk Score
 
 ## Current Phase
 
-**Phase 1: UI Overhaul** — PLANNED, READY TO EXECUTE
+**Phase 2: Wallet Risk Score** — NOT STARTED
 
-3 plans in 3 waves. Run `/gsd-execute-phase 1` to start.
-
-Plans:
-- `.planning/phases/01-ui-overhaul/01-01-PLAN.md` — Wave 1: CSS overhaul + header + tabs (UI-01, UI-02, UI-04)
-- `.planning/phases/01-ui-overhaul/01-02-PLAN.md` — Wave 2: Chain grid + animations (UI-05, UI-06)
-- `.planning/phases/01-ui-overhaul/01-03-PLAN.md` — Wave 3: Mobile CSS + checkpoint (UI-01, UI-03)
+After all checks complete, surface a single risk rating (LOW / MEDIUM / HIGH / CRITICAL) that combines all signals into one answer users can act on immediately.
 
 ## Phase Status
 
 | # | Phase | Status |
 |---|-------|--------|
-| 1 | UI Overhaul | Planned — ready to execute (3 plans, 3 waves) |
+| 1 | UI Overhaul | ✓ Complete (2026-05-04) |
 | 2 | Wallet Risk Score | Not started |
 | 3 | Chain Alignment | Not started |
 
 ## Key Files
 
-- Main file: `StableCoin Blacklist Checker/index.html`
-- Old V1: `StableCoin Blacklist Checker/blacklist-checker.html` (reference only)
+- Main file: `index.html`
 - Planning: `.planning/`
+
+## Known Issues (from Phase 1 review)
+
+- CR-01: `--border2` / `--border3` CSS variables undeclared — borders on inputs/buttons may be invisible
+- CR-02: Vacuous `every()` produces false CLEAN when all RPCs fail
+- CR-03: XSS via `innerHTML` with unsanitised sessionStorage / RPC error messages
+- CR-04: Tron address ABI hex extraction wrong — may return incorrect blacklist result
