@@ -602,6 +602,7 @@ async function runBlacklist(addrOverride){
 
   if(!addr){ errBox.textContent='Please enter a wallet address.'; errBox.style.display='block'; return; }
 
+
   const evm=isEvm(addr), tron=isTron(addr);
   if(!evm&&!tron){ errBox.textContent='Invalid address. Enter a valid Ethereum (0x…) or Tron (T…) address.'; errBox.style.display='block'; return; }
 
@@ -641,7 +642,6 @@ async function runBlacklist(addrOverride){
   else if(allOk){ banner.className='banner safe'; banner.style.display='flex'; banner.textContent='✓ Address is not blacklisted on any checked contract.'; }
 
   const risk=computeRisk(results);
-  const rb=document.getElementById('blRiskBanner');
   rb.className='risk-banner '+risk.cssClass;
   document.getElementById('blRiskLevel').textContent=risk.level;
   document.getElementById('blRiskLabel').textContent=risk.description;
