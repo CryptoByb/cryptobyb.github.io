@@ -593,7 +593,7 @@ function computeRisk(results, unlimitedCount){
   if(anyBlacklisted)
     return{level:'CRITICAL',cssClass:'risk-critical',description:'Address blacklisted on one or more chains'};
   if(unlimitedCount>0)
-    return{level:'HIGH',cssClass:'risk-high',description:'Unlimited token approval(s) detected — review active allowances'};
+    return{level:'HIGH',cssClass:'risk-high',description:'Unlimited token approval(s) detected — review Token Approvals tab'};
   if(anyError&&defined.length>0)
     return{level:'MEDIUM',cssClass:'risk-medium',description:'Partial data — some chains did not respond'};
   if(defined.length===0)
@@ -662,6 +662,9 @@ async function runBlacklist(addrOverride){
     rows.appendChild(block);
   });
 
+  // Kick off approval fetch in parallel with blacklist checks (Tron only)
+  const approvalPromise = tron ? fetchTronApprovals(addr) : Promise.resolve(0);
+
   const results=await Promise.all(chains.map(async c=>{
     try{
       const bl=c.type==='tron'?await checkTron(addr):await checkEvm(c,addr);
@@ -669,16 +672,24 @@ async function runBlacklist(addrOverride){
     } catch(e){ updateRow(c.id,null,e.message); return null; }
   }));
 
+  const unlimitedCount = await approvalPromise;
+
   const def=results.filter(r=>r!==null);
   const anyBl=def.some(r=>r===true);
   const allOk=def.length>0&&def.every(r=>r===false);
   const outcome=anyBl?'blacklisted':allOk?'safe':'error';
 
-  if(anyBl){ banner.className='banner blacklisted'; banner.style.display='flex'; banner.textContent='⚠ This address is blacklisted on one or more contracts.'; }
-  else if(allOk){ banner.className='banner safe'; banner.style.display='flex'; banner.textContent='✓ Address is not blacklisted on any checked contract.'; }
+  const risk=computeRisk(results, unlimitedCount);
 
-  // Show risk banner immediately from blacklist results
-  const risk=computeRisk(results, 0);
+  if(risk.level==='HIGH'){
+    // Hide chain rows — all green but unlimited approval found; focus user on Approvals tab
+    rows.innerHTML='';
+    banner.style.display='none';
+  } else {
+    if(anyBl){ banner.className='banner blacklisted'; banner.style.display='flex'; banner.textContent='⚠ This address is blacklisted on one or more contracts.'; }
+    else if(allOk){ banner.className='banner safe'; banner.style.display='flex'; banner.textContent='✓ Address is not blacklisted on any checked contract.'; }
+  }
+
   rb.className='risk-banner '+risk.cssClass;
   document.getElementById('blRiskLevel').textContent=risk.level;
   document.getElementById('blRiskLabel').textContent=risk.description;
@@ -686,18 +697,6 @@ async function runBlacklist(addrOverride){
 
   saveHist(addr,blToken,outcome,risk.level);
   btn.disabled=false; btn.textContent='Check Blacklist →';
-
-  // Silently upgrade to HIGH if Tron address has unlimited approvals
-  if(tron){
-    fetchTronApprovals(addr).then(unlimitedCount=>{
-      if(unlimitedCount>0){
-        const upgraded=computeRisk(results,unlimitedCount);
-        rb.className='risk-banner '+upgraded.cssClass;
-        document.getElementById('blRiskLevel').textContent=upgraded.level;
-        document.getElementById('blRiskLabel').textContent=upgraded.description;
-      }
-    });
-  }
 }
 
 function updateRow(id,bl,err){
@@ -926,7 +925,7 @@ async function runApprovals(){
 
     const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');
-    ['Token', 'Spender Contract', 'Allowance'].forEach(function(col){
+    ['Token', 'Risk Contract', 'Allowance'].forEach(function(col){
       const th = document.createElement('th');
       th.textContent = col;
       headerRow.appendChild(th);
@@ -945,14 +944,20 @@ async function runApprovals(){
       const name = (row.tokenInfo && row.tokenInfo.tokenName) ? row.tokenInfo.tokenName : '';
       tdToken.textContent = name ? abbr + ' — ' + name : abbr;
 
-      // Spender cell: truncated with full address in title
+      // Spender cell: full address, click to copy
       const tdSpender = document.createElement('td');
       const spender = row.to_address || '—';
-      tdSpender.textContent = spender.length > 14 ? spender.slice(0,8)+'…'+spender.slice(-6) : spender;
-      tdSpender.title = spender;
-      tdSpender.style.fontFamily = 'var(--mono)';
-      tdSpender.style.color = 'var(--accent)';
-      tdSpender.style.cursor = 'default';
+      const addrSpan = document.createElement('span');
+      addrSpan.textContent = spender;
+      addrSpan.title = 'Click to copy';
+      addrSpan.style.cssText = 'font-family:var(--mono);font-size:11px;color:var(--accent);word-break:break-all;cursor:pointer';
+      addrSpan.addEventListener('click', function(){
+        navigator.clipboard.writeText(spender).then(function(){
+          addrSpan.style.color = 'var(--green)';
+          setTimeout(function(){ addrSpan.style.color = 'var(--accent)'; }, 1200);
+        });
+      });
+      tdSpender.appendChild(addrSpan);
 
       // Allowance cell
       const tdAllowance = document.createElement('td');
