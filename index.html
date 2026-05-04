@@ -572,11 +572,10 @@ function computeRisk(results){
   const defined=results.filter(r=>r!==null);
   const anyBlacklisted=results.some(r=>r===true);
   const anyError=results.some(r=>r===null);
-  const anySuccess=defined.some(r=>r===false||r===true);
 
   if(anyBlacklisted)
     return{level:'CRITICAL',cssClass:'risk-critical',description:'Address blacklisted on one or more chains'};
-  if(anyError&&anySuccess)
+  if(anyError&&defined.length>0)
     return{level:'MEDIUM',cssClass:'risk-medium',description:'Partial data — some chains did not respond'};
   if(defined.length===0)
     return{level:'MEDIUM',cssClass:'risk-medium',description:'No chain data returned — RPC errors on all chains'};
@@ -599,6 +598,7 @@ async function runBlacklist(addrOverride){
   errBox.style.display='none';
   banner.style.display='none';
   rows.innerHTML='';
+  const rb=document.getElementById('blRiskBanner'); rb.style.display='none'; rb.className='risk-banner';
 
   if(!addr){ errBox.textContent='Please enter a wallet address.'; errBox.style.display='block'; return; }
 
