@@ -27,6 +27,8 @@
   --red-dim:rgba(239,68,68,0.08);
   --amber:#f59e0b;
   --amber-dim:rgba(245,158,11,0.08);
+  --orange:#f97316;
+  --orange-dim:rgba(249,115,22,0.08);
   --mono:'JetBrains Mono',monospace;
   --r:8px;
 }
@@ -120,6 +122,15 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .banner.safe{background:var(--green-dim);border:1px solid rgba(34,197,94,.2);color:#86efac}
 .banner.blacklisted{background:var(--red-dim);border:1px solid rgba(239,68,68,.25);color:#fca5a5}
 
+/* Risk banner */
+.risk-banner{display:none;align-items:center;gap:14px;padding:18px 22px;border-radius:10px;font-family:var(--mono);margin-bottom:12px}
+.risk-banner-level{font-size:22px;font-weight:700;letter-spacing:.04em;line-height:1}
+.risk-banner-label{font-size:12px;font-weight:500;opacity:.8;letter-spacing:.06em;text-transform:uppercase}
+.risk-banner.risk-critical{background:var(--red-dim);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+.risk-banner.risk-high{background:var(--orange-dim);border:1px solid rgba(249,115,22,.3);color:var(--orange)}
+.risk-banner.risk-medium{background:var(--amber-dim);border:1px solid rgba(245,158,11,.25);color:var(--amber)}
+.risk-banner.risk-low{background:var(--green-dim);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+
 /* History */
 .hist-section{display:none;margin-bottom:24px}
 .hist-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
@@ -135,6 +146,11 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .hist-badge.safe{background:var(--green-dim);color:var(--green)}
 .hist-badge.blacklisted{background:var(--red-dim);color:var(--red)}
 .hist-badge.error{background:var(--amber-dim);color:var(--amber)}
+.hist-risk{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:.04em}
+.hist-risk.risk-critical{background:var(--red-dim);color:var(--red)}
+.hist-risk.risk-high{background:var(--orange-dim);color:var(--orange)}
+.hist-risk.risk-medium{background:var(--amber-dim);color:var(--amber)}
+.hist-risk.risk-low{background:var(--green-dim);color:var(--green)}
 .hist-rm{font-size:16px;color:var(--muted);background:none;border:none;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0}
 .hist-rm:hover{color:var(--text)}
 
