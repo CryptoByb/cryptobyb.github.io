@@ -1,6 +1,6 @@
 # Roadmap — CryptoByB Stablecoin Blacklist Checker
 
-**3 phases** | **10 requirements mapped** | All v1 requirements covered ✓
+**3 phases complete** | **10 requirements mapped** | All v1 requirements covered ✓
 
 ## Phase Overview
 
@@ -8,7 +8,7 @@
 |---|-------|------|--------------|-----------------|
 | 1 | ~~UI Overhaul~~ | ~~Make the tool look like a real product users trust and share~~ | UI-01 – UI-06 | ✓ Complete (2026-05-04) |
 | 2 | ~~Wallet Risk Score~~ | ~~Give users one clear answer: is this wallet safe?~~ | RISK-01 – RISK-03 | ✓ Complete (2026-05-04) |
-| 3 | Chain Alignment | Complete coverage — blacklist check matches approvals scanner | CHAIN-01 | 2 criteria |
+| 3 | ~~Chain Alignment~~ | ~~Complete coverage — blacklist check matches approvals scanner~~ | CHAIN-01 | ✓ Complete (2026-05-04) |
 
 ---
 
@@ -90,6 +90,9 @@ Plans:
 - Add Polygon USDT/USDC to blacklist tab (already in approvals, add to main check)
 - Arbitrum already in blacklist — verify parity with approvals config
 - Update "Covered chains" info card to reflect expanded coverage
+
+**Status: Closed as already satisfied (2026-05-04)**
+USDC already covers Ethereum, Arbitrum, Base, Optimism, Polygon, Avalanche. USDT covers Ethereum + Tron — the only chains where Tether enforces blacklisting on-chain. BSC excluded: Binance-pegged USDT has no blacklist function; native Circle USDC on BSC unverified. Chain coverage is complete given on-chain contract reality.
 
 **Success criteria:**
 1. Blacklist tab checks BSC, Polygon, Arbitrum for both USDT and USDC

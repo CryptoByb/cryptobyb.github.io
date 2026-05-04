@@ -16,7 +16,7 @@
 - [ ] **RISK-03**: Risk badge is visible on history items so past checks are immediately readable
 
 ### Chain Coverage
-- [ ] **CHAIN-01**: Blacklist tab checks BSC, Polygon, Arbitrum in addition to current chains (align with approvals coverage)
+- [x] **CHAIN-01**: Blacklist tab checks BSC, Polygon, Arbitrum in addition to current chains (align with approvals coverage) *(Closed as already satisfied — Phase 3)*
 
 ## v2 Requirements (Deferred)
 

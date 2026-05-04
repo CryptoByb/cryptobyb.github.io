@@ -5,13 +5,13 @@
 See: .planning/PROJECT.md (updated 2026-05-04)
 
 **Core value:** A crypto user pastes a wallet address and immediately knows if it's blacklisted or compromised — no signup, no backend, no trust required.
-**Current focus:** Phase 3 — Chain Alignment
+**Current focus:** v1 complete — planning Phase 4
 
 ## Current Phase
 
-**Phase 2: Wallet Risk Score** — COMPLETE (1/1 plans done)
+**Phase 3: Chain Alignment** — CLOSED as already satisfied (2026-05-04)
 
-After all checks complete, surface a single risk rating (LOW / MEDIUM / HIGH / CRITICAL) that combines all signals into one answer users can act on immediately.
+USDC covers 6 chains. USDT covers Ethereum + Tron. No additional chains possible given on-chain contract reality.
 
 ## Phase Status
 
@@ -19,7 +19,7 @@ After all checks complete, surface a single risk rating (LOW / MEDIUM / HIGH / C
 |---|-------|--------|
 | 1 | UI Overhaul | ✓ Complete (2026-05-04) |
 | 2 | Wallet Risk Score | ✓ Complete (2026-05-04) |
-| 3 | Chain Alignment | Not started |
+| 3 | Chain Alignment | ✓ Closed (2026-05-04) |
 
 ## Key Files
 
