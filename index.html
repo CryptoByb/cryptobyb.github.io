@@ -315,7 +315,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
         </div>
         <div class="info-card">
           <h3>Covered chains</h3>
-          <p>USDT: Ethereum, Tron, Avalanche, Polygon, Arbitrum, Optimism. USDC: Ethereum, Arbitrum, Base, Optimism, Polygon, Avalanche.</p>
+          <p>USDT: Ethereum, Tron (only chains where Tether enforces blacklisting on-chain). USDC: Ethereum, Arbitrum, Base, Optimism, Polygon, Avalanche.</p>
         </div>
       </div>
     </div>
@@ -395,12 +395,8 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 // ── Chain config ──────────────────────────────────────────────────────────────
 const CHAINS = {
   USDT: [
-    { id:'eth',      name:'Ethereum',  short:'ETH',  type:'evm',  decimals:6, sig:'0x59bf1abe', contract:'0xdAC17F958D2ee523a2206206994597C13D831ec7', rpcs:['https://eth.llamarpc.com','https://cloudflare-eth.com','https://ethereum-rpc.publicnode.com'], explorer:'https://etherscan.io' },
-    { id:'tron',     name:'Tron',      short:'TRX',  type:'tron', decimals:6, contract:'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', explorer:'https://tronscan.org' },
-    { id:'avax',     name:'Avalanche', short:'AVAX', type:'evm',  decimals:6, sig:'0xfe575a87', contract:'0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7', rpcs:['https://api.avax.network/ext/bc/C/rpc','https://rpc.ankr.com/avalanche','https://avalanche-c-chain-rpc.publicnode.com'], explorer:'https://snowtrace.io' },
-    { id:'polygon',  name:'Polygon',   short:'POL',  type:'evm',  decimals:6, sig:'0xfe575a87', contract:'0xc2132D05D31c914a87C6611C10748AEb04B58e8F', rpcs:['https://polygon-rpc.com','https://rpc.ankr.com/polygon','https://polygon-bor-rpc.publicnode.com'], explorer:'https://polygonscan.com' },
-    { id:'arbitrum', name:'Arbitrum',  short:'ARB',  type:'evm',  decimals:6, sig:'0xfe575a87', contract:'0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', rpcs:['https://arb1.arbitrum.io/rpc','https://rpc.ankr.com/arbitrum','https://arbitrum-one-rpc.publicnode.com'], explorer:'https://arbiscan.io' },
-    { id:'optimism', name:'Optimism',  short:'OP',   type:'evm',  decimals:6, sig:'0xfe575a87', contract:'0x94b008aA00579c1307B0EF2c499aD98a8ce58e58', rpcs:['https://mainnet.optimism.io','https://rpc.ankr.com/optimism','https://optimism-rpc.publicnode.com'], explorer:'https://optimistic.etherscan.io' },
+    { id:'eth',  name:'Ethereum', short:'ETH', type:'evm',  decimals:6, sig:'0x59bf1abe', contract:'0xdAC17F958D2ee523a2206206994597C13D831ec7', rpcs:['https://eth.llamarpc.com','https://cloudflare-eth.com','https://ethereum-rpc.publicnode.com'], explorer:'https://etherscan.io' },
+    { id:'tron', name:'Tron',     short:'TRX', type:'tron', decimals:6, contract:'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', explorer:'https://tronscan.org' },
   ],
   USDC: [
     { id:'eth',      name:'Ethereum',  short:'ETH',  type:'evm',  decimals:6, sig:'0xfe575a87', contract:'0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', rpcs:['https://eth.llamarpc.com','https://cloudflare-eth.com','https://ethereum-rpc.publicnode.com'], explorer:'https://etherscan.io' },
