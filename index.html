@@ -257,6 +257,17 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   /* Batch textarea: use full height */
   .batch-ta{min-height:110px}
 }
+
+/* Approvals table */
+.appr-table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;font-family:var(--mono);font-size:12px}
+.appr-table th{padding:12px 14px;text-align:left;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--surface2)}
+.appr-table td{padding:11px 14px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.appr-table tr:last-child td{border-bottom:none}
+.appr-table tr:hover td{background:var(--surface2)}
+.appr-unlimited{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--orange);background:var(--orange-dim);border:1px solid rgba(249,115,22,.3);padding:2px 10px;border-radius:3px;letter-spacing:.04em}
+.appr-loading{text-align:center;padding:40px 20px;font-family:var(--mono);font-size:12px;color:var(--muted2);display:flex;align-items:center;justify-content:center;gap:10px}
+.appr-empty{text-align:center;padding:40px 20px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.appr-err{padding:12px 16px;background:var(--red-dim);border:1px solid rgba(239,68,68,.2);border-radius:8px;font-family:var(--mono);font-size:12px;color:#fca5a5;margin-top:12px}
 </style>
 </head>
 <body>
@@ -343,9 +354,13 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 
   <!-- ══ TOKEN APPROVALS TAB ══════════════════════════════════════════════════ -->
   <div class="tab" id="tab-approvals">
-    <div style="text-align:center;padding:60px 20px;font-family:var(--mono);font-size:13px;color:var(--muted);border:1px dashed var(--border);border-radius:var(--r)">
-      Token Approvals scanner — coming soon
+    <div class="inp-row">
+      <input class="addr-inp" id="apprInput" placeholder="Enter Tron address (T…)" autocomplete="off" spellcheck="false">
+      <button class="paste-btn" onclick="doPaste('apprInput')">Paste</button>
     </div>
+    <div class="err-box" id="apprErr"></div>
+    <button class="main-btn" id="apprBtn" onclick="runApprovals()">Scan Approvals →</button>
+    <div id="apprResults"></div>
   </div>
 
   <!-- ══ TX TRACER TAB ══════════════════════════════════════════════════════ -->
@@ -430,6 +445,7 @@ const CHAINS = {
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let blToken = 'USDT', batchTok = 'USDT', currentAddr = '';
+let lastApprovalData = null; // TronScan response for last Tron address scanned
 let hist = JSON.parse(sessionStorage.getItem('cbk_h') || '[]');
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
@@ -567,19 +583,39 @@ function clearHist(){ hist=[]; sessionStorage.removeItem('cbk_h'); renderHist();
 // ── Risk scoring ──────────────────────────────────────────────────────────────
 // results: array of boolean|null — true=blacklisted, false=clean, null=error
 // Returns { level: 'LOW'|'MEDIUM'|'HIGH'|'CRITICAL', cssClass: 'risk-low'|..., description: string }
-// HIGH tier reserved for Phase 3+ (unlimited token approvals); unreachable until approvals scanner ships.
-function computeRisk(results){
+// HIGH tier wired to unlimited TRC-20 approvals via TronScan (Phase 4).
+function computeRisk(results, unlimitedCount){
+  unlimitedCount = unlimitedCount || 0;
   const defined=results.filter(r=>r!==null);
   const anyBlacklisted=results.some(r=>r===true);
   const anyError=results.some(r=>r===null);
 
   if(anyBlacklisted)
     return{level:'CRITICAL',cssClass:'risk-critical',description:'Address blacklisted on one or more chains'};
+  if(unlimitedCount>0)
+    return{level:'HIGH',cssClass:'risk-high',description:'Unlimited token approval(s) detected — review active allowances'};
   if(anyError&&defined.length>0)
     return{level:'MEDIUM',cssClass:'risk-medium',description:'Partial data — some chains did not respond'};
   if(defined.length===0)
     return{level:'MEDIUM',cssClass:'risk-medium',description:'No chain data returned — RPC errors on all chains'};
   return{level:'LOW',cssClass:'risk-low',description:'Not blacklisted on any checked chain'};
+}
+
+// ── TronScan approval fetch ───────────────────────────────────────────────────
+// Returns count of rows where unlimited===true, or 0 on error.
+// Stores full response in lastApprovalData for the Approvals tab to read.
+async function fetchTronApprovals(addr){
+  lastApprovalData = null;
+  try{
+    const r = await fetch('https://apilist.tronscanapi.com/api/account/approve/list?address='+encodeURIComponent(addr));
+    if(!r.ok) return 0;
+    const j = await r.json();
+    lastApprovalData = j;
+    const rows = Array.isArray(j.data) ? j.data : [];
+    return rows.filter(row => row.unlimited === true).length;
+  } catch(e){
+    return 0;
+  }
 }
 
 // ── Blacklist check ───────────────────────────────────────────────────────────
@@ -641,7 +677,8 @@ async function runBlacklist(addrOverride){
   if(anyBl){ banner.className='banner blacklisted'; banner.style.display='flex'; banner.textContent='⚠ This address is blacklisted on one or more contracts.'; }
   else if(allOk){ banner.className='banner safe'; banner.style.display='flex'; banner.textContent='✓ Address is not blacklisted on any checked contract.'; }
 
-  const risk=computeRisk(results);
+  // Show risk banner immediately from blacklist results
+  const risk=computeRisk(results, 0);
   rb.className='risk-banner '+risk.cssClass;
   document.getElementById('blRiskLevel').textContent=risk.level;
   document.getElementById('blRiskLabel').textContent=risk.description;
@@ -649,6 +686,18 @@ async function runBlacklist(addrOverride){
 
   saveHist(addr,blToken,outcome,risk.level);
   btn.disabled=false; btn.textContent='Check Blacklist →';
+
+  // Silently upgrade to HIGH if Tron address has unlimited approvals
+  if(tron){
+    fetchTronApprovals(addr).then(unlimitedCount=>{
+      if(unlimitedCount>0){
+        const upgraded=computeRisk(results,unlimitedCount);
+        rb.className='risk-banner '+upgraded.cssClass;
+        document.getElementById('blRiskLevel').textContent=upgraded.level;
+        document.getElementById('blRiskLabel').textContent=upgraded.description;
+      }
+    });
+  }
 }
 
 function updateRow(id,bl,err){
@@ -819,6 +868,132 @@ async function runBatch(){
 
   btn.disabled=false; btn.textContent='Check All Addresses →';
 }
+
+// ── Token Approvals scanner ───────────────────────────────────────────────────
+async function runApprovals(){
+  const input = document.getElementById('apprInput');
+  const btn = document.getElementById('apprBtn');
+  const errBox = document.getElementById('apprErr');
+  const results = document.getElementById('apprResults');
+
+  const addr = input.value.trim();
+  errBox.style.display = 'none';
+  results.innerHTML = '';
+
+  if(!addr){
+    errBox.textContent = 'Please enter a Tron address.';
+    errBox.style.display = 'block';
+    return;
+  }
+  if(!isTron(addr)){
+    errBox.textContent = 'Token Approvals requires a Tron address (T…). EVM approvals are not supported yet.';
+    errBox.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Scanning…';
+
+  // Show loading state
+  const loadDiv = document.createElement('div');
+  loadDiv.className = 'appr-loading';
+  const spin = document.createElement('div');
+  spin.className = 'spin';
+  const loadTxt = document.createTextNode('Fetching active approvals…');
+  loadDiv.appendChild(spin);
+  loadDiv.appendChild(loadTxt);
+  results.appendChild(loadDiv);
+
+  try{
+    const r = await fetch('https://apilist.tronscanapi.com/api/account/approve/list?address='+encodeURIComponent(addr));
+    if(!r.ok) throw new Error('TronScan returned HTTP '+r.status);
+    const j = await r.json();
+    const rows = Array.isArray(j.data) ? j.data : [];
+
+    results.innerHTML = '';
+
+    if(!rows.length){
+      const empty = document.createElement('div');
+      empty.className = 'appr-empty';
+      empty.textContent = 'No active approvals found for this address.';
+      results.appendChild(empty);
+      return;
+    }
+
+    // Build table using DOM — no innerHTML with API data (XSS prevention)
+    const table = document.createElement('table');
+    table.className = 'appr-table';
+
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    ['Token', 'Spender Contract', 'Allowance'].forEach(function(col){
+      const th = document.createElement('th');
+      th.textContent = col;
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+
+    rows.forEach(function(row){
+      const tr = document.createElement('tr');
+
+      // Token cell: "SYMBOL — Token Name"
+      const tdToken = document.createElement('td');
+      const abbr = (row.tokenInfo && row.tokenInfo.tokenAbbr) ? row.tokenInfo.tokenAbbr : '—';
+      const name = (row.tokenInfo && row.tokenInfo.tokenName) ? row.tokenInfo.tokenName : '';
+      tdToken.textContent = name ? abbr + ' — ' + name : abbr;
+
+      // Spender cell: truncated with full address in title
+      const tdSpender = document.createElement('td');
+      const spender = row.to_address || '—';
+      tdSpender.textContent = spender.length > 14 ? spender.slice(0,8)+'…'+spender.slice(-6) : spender;
+      tdSpender.title = spender;
+      tdSpender.style.fontFamily = 'var(--mono)';
+      tdSpender.style.color = 'var(--accent)';
+      tdSpender.style.cursor = 'default';
+
+      // Allowance cell
+      const tdAllowance = document.createElement('td');
+      if(row.unlimited === true){
+        const badge = document.createElement('span');
+        badge.className = 'appr-unlimited';
+        badge.textContent = 'UNLIMITED';
+        tdAllowance.appendChild(badge);
+      } else {
+        // Show raw balance string — may be very large, display as-is
+        const balStr = row.balance ? String(row.balance) : '0';
+        // If balance string > 20 chars, truncate with ellipsis for display
+        tdAllowance.textContent = balStr.length > 20 ? balStr.slice(0,20)+'…' : balStr;
+        tdAllowance.style.color = 'var(--muted2)';
+      }
+
+      tr.appendChild(tdToken);
+      tr.appendChild(tdSpender);
+      tr.appendChild(tdAllowance);
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    results.appendChild(table);
+
+    // Update lastApprovalData so blacklist tab risk score reflects manual scan
+    lastApprovalData = j;
+
+  } catch(e){
+    results.innerHTML = '';
+    const errDiv = document.createElement('div');
+    errDiv.className = 'appr-err';
+    errDiv.textContent = 'Could not fetch approvals: ' + e.message;
+    results.appendChild(errDiv);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Scan Approvals →';
+  }
+}
+
+document.getElementById('apprInput').addEventListener('keydown', function(e){ if(e.key==='Enter') runApprovals(); });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 updateTraceChains();
