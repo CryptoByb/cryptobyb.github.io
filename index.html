@@ -323,7 +323,6 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
         <span class="risk-banner-label" id="blRiskLabel"></span>
       </div>
       <div class="res-rows" id="blRows"></div>
-      <div class="banner" id="blBanner"></div>
     </div>
 
     <div class="hist-section" id="histSection">
@@ -625,14 +624,12 @@ async function runBlacklist(addrOverride){
   const errBox=document.getElementById('blErr');
   const resSec=document.getElementById('blResults');
   const rows=document.getElementById('blRows');
-  const banner=document.getElementById('blBanner');
   const chip=document.getElementById('blChip');
 
   const addr=(addrOverride||input.value).trim();
   if(addrOverride) input.value=addr;
 
   errBox.style.display='none';
-  banner.style.display='none';
   rows.innerHTML='';
   const rb=document.getElementById('blRiskBanner'); rb.style.display='none'; rb.className='risk-banner';
 
@@ -688,11 +685,8 @@ async function runBlacklist(addrOverride){
     // Hide chain rows — all green but unlimited approval found; focus user on Approvals tab
     rows.innerHTML='';
     rows.style.visibility='';
-    banner.style.display='none';
   } else {
     rows.style.visibility='';
-    if(anyBl){ banner.className='banner blacklisted'; banner.style.display='flex'; banner.textContent='⚠ This address is blacklisted on one or more contracts.'; }
-    else if(allOk){ banner.className='banner safe'; banner.style.display='flex'; banner.textContent='✓ Address is not blacklisted on any checked contract.'; }
   }
 
   rb.className='risk-banner '+risk.cssClass;
