@@ -665,6 +665,9 @@ async function runBlacklist(addrOverride){
   // Kick off approval fetch in parallel with blacklist checks (Tron only)
   const approvalPromise = tron ? fetchTronApprovals(addr) : Promise.resolve(0);
 
+  // Hide rows for Tron only — prevents green flash before approval check settles
+  if(tron) rows.style.visibility='hidden';
+
   const results=await Promise.all(chains.map(async c=>{
     try{
       const bl=c.type==='tron'?await checkTron(addr):await checkEvm(c,addr);
@@ -684,8 +687,10 @@ async function runBlacklist(addrOverride){
   if(risk.level==='HIGH'){
     // Hide chain rows — all green but unlimited approval found; focus user on Approvals tab
     rows.innerHTML='';
+    rows.style.visibility='';
     banner.style.display='none';
   } else {
+    rows.style.visibility='';
     if(anyBl){ banner.className='banner blacklisted'; banner.style.display='flex'; banner.textContent='⚠ This address is blacklisted on one or more contracts.'; }
     else if(allOk){ banner.className='banner safe'; banner.style.display='flex'; banner.textContent='✓ Address is not blacklisted on any checked contract.'; }
   }
