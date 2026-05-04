@@ -307,6 +307,10 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
           <button class="act-btn" id="blShare" onclick="shareLink()">Share</button>
         </div>
       </div>
+      <div class="risk-banner" id="blRiskBanner">
+        <span class="risk-banner-level" id="blRiskLevel"></span>
+        <span class="risk-banner-label" id="blRiskLabel"></span>
+      </div>
       <div class="res-rows" id="blRows"></div>
       <div class="banner" id="blBanner"></div>
     </div>
@@ -526,9 +530,9 @@ function shareLink(){
 }
 
 // ── History ───────────────────────────────────────────────────────────────────
-function saveHist(addr,token,outcome){
+function saveHist(addr,token,outcome,riskLevel){
   hist=hist.filter(h=>!(h.addr===addr&&h.token===token));
-  hist.unshift({addr,token,outcome,time:Date.now()});
+  hist.unshift({addr,token,outcome,riskLevel:riskLevel||'LOW',time:Date.now()});
   if(hist.length>12) hist=hist.slice(0,12);
   sessionStorage.setItem('cbk_h',JSON.stringify(hist));
   renderHist();
@@ -542,6 +546,7 @@ function renderHist(){
   hist.forEach((h,i)=>{
     const mins=Math.floor((Date.now()-h.time)/60000);
     const ts=mins<1?'just now':mins<60?`${mins}m ago`:`${Math.floor(mins/60)}h ago`;
+    const riskClass='risk-'+(h.riskLevel||'low').toLowerCase();
     const el=document.createElement('div');
     el.className='hist-item';
     el.innerHTML=`<span class="hist-addr">${short(h.addr)}</span>
@@ -549,6 +554,7 @@ function renderHist(){
         <span style="font-family:var(--mono);font-size:10px;color:var(--muted);background:var(--surface2);padding:2px 6px;border-radius:3px">${h.token}</span>
         <span class="hist-time">${ts}</span>
         <span class="hist-badge ${h.outcome}">${h.outcome==='safe'?'Clean':h.outcome==='blacklisted'?'Blacklisted':'Error'}</span>
+        <span class="hist-risk ${riskClass}">${(h.riskLevel||'LOW')}</span>
         <button class="hist-rm" title="Remove">×</button>
       </div>`;
     el.querySelector('.hist-rm').addEventListener('click',e=>{ e.stopPropagation(); hist.splice(i,1); sessionStorage.setItem('cbk_h',JSON.stringify(hist)); renderHist(); });
@@ -557,6 +563,25 @@ function renderHist(){
   });
 }
 function clearHist(){ hist=[]; sessionStorage.removeItem('cbk_h'); renderHist(); }
+
+// ── Risk scoring ──────────────────────────────────────────────────────────────
+// results: array of boolean|null — true=blacklisted, false=clean, null=error
+// Returns { level: 'LOW'|'MEDIUM'|'HIGH'|'CRITICAL', cssClass: 'risk-low'|..., description: string }
+// HIGH tier reserved for Phase 3+ (unlimited token approvals); unreachable until approvals scanner ships.
+function computeRisk(results){
+  const defined=results.filter(r=>r!==null);
+  const anyBlacklisted=results.some(r=>r===true);
+  const anyError=results.some(r=>r===null);
+  const anySuccess=defined.some(r=>r===false||r===true);
+
+  if(anyBlacklisted)
+    return{level:'CRITICAL',cssClass:'risk-critical',description:'Address blacklisted on one or more chains'};
+  if(anyError&&anySuccess)
+    return{level:'MEDIUM',cssClass:'risk-medium',description:'Partial data — some chains did not respond'};
+  if(defined.length===0)
+    return{level:'MEDIUM',cssClass:'risk-medium',description:'No chain data returned — RPC errors on all chains'};
+  return{level:'LOW',cssClass:'risk-low',description:'Not blacklisted on any checked chain'};
+}
 
 // ── Blacklist check ───────────────────────────────────────────────────────────
 async function runBlacklist(addrOverride){
@@ -615,7 +640,14 @@ async function runBlacklist(addrOverride){
   if(anyBl){ banner.className='banner blacklisted'; banner.style.display='flex'; banner.textContent='⚠ This address is blacklisted on one or more contracts.'; }
   else if(allOk){ banner.className='banner safe'; banner.style.display='flex'; banner.textContent='✓ Address is not blacklisted on any checked contract.'; }
 
-  saveHist(addr,blToken,outcome);
+  const risk=computeRisk(results);
+  const rb=document.getElementById('blRiskBanner');
+  rb.className='risk-banner '+risk.cssClass;
+  document.getElementById('blRiskLevel').textContent=risk.level;
+  document.getElementById('blRiskLabel').textContent=risk.description;
+  rb.style.display='flex';
+
+  saveHist(addr,blToken,outcome,risk.level);
   btn.disabled=false; btn.textContent='Check Blacklist →';
 }
 
