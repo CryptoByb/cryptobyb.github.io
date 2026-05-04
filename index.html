@@ -27,6 +27,8 @@
   --red-dim:rgba(239,68,68,0.08);
   --amber:#f59e0b;
   --amber-dim:rgba(245,158,11,0.08);
+  --orange:#f97316;
+  --orange-dim:rgba(249,115,22,0.08);
   --mono:'JetBrains Mono',monospace;
   --r:8px;
 }
@@ -120,6 +122,15 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .banner.safe{background:var(--green-dim);border:1px solid rgba(34,197,94,.2);color:#86efac}
 .banner.blacklisted{background:var(--red-dim);border:1px solid rgba(239,68,68,.25);color:#fca5a5}
 
+/* Risk banner */
+.risk-banner{display:none;align-items:center;gap:14px;padding:18px 22px;border-radius:10px;font-family:var(--mono);margin-bottom:12px}
+.risk-banner-level{font-size:22px;font-weight:700;letter-spacing:.04em;line-height:1}
+.risk-banner-label{font-size:12px;font-weight:500;opacity:.8;letter-spacing:.06em;text-transform:uppercase}
+.risk-banner.risk-critical{background:var(--red-dim);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+.risk-banner.risk-high{background:var(--orange-dim);border:1px solid rgba(249,115,22,.3);color:var(--orange)}
+.risk-banner.risk-medium{background:var(--amber-dim);border:1px solid rgba(245,158,11,.25);color:var(--amber)}
+.risk-banner.risk-low{background:var(--green-dim);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+
 /* History */
 .hist-section{display:none;margin-bottom:24px}
 .hist-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
@@ -135,6 +146,11 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .hist-badge.safe{background:var(--green-dim);color:var(--green)}
 .hist-badge.blacklisted{background:var(--red-dim);color:var(--red)}
 .hist-badge.error{background:var(--amber-dim);color:var(--amber)}
+.hist-risk{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:.04em}
+.hist-risk.risk-critical{background:var(--red-dim);color:var(--red)}
+.hist-risk.risk-high{background:var(--orange-dim);color:var(--orange)}
+.hist-risk.risk-medium{background:var(--amber-dim);color:var(--amber)}
+.hist-risk.risk-low{background:var(--green-dim);color:var(--green)}
 .hist-rm{font-size:16px;color:var(--muted);background:none;border:none;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0}
 .hist-rm:hover{color:var(--text)}
 
@@ -290,6 +306,10 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
           <button class="act-btn" id="blCopy" onclick="copyAddr()">Copy</button>
           <button class="act-btn" id="blShare" onclick="shareLink()">Share</button>
         </div>
+      </div>
+      <div class="risk-banner" id="blRiskBanner">
+        <span class="risk-banner-level" id="blRiskLevel"></span>
+        <span class="risk-banner-label" id="blRiskLabel"></span>
       </div>
       <div class="res-rows" id="blRows"></div>
       <div class="banner" id="blBanner"></div>
@@ -510,9 +530,9 @@ function shareLink(){
 }
 
 // ── History ───────────────────────────────────────────────────────────────────
-function saveHist(addr,token,outcome){
+function saveHist(addr,token,outcome,riskLevel){
   hist=hist.filter(h=>!(h.addr===addr&&h.token===token));
-  hist.unshift({addr,token,outcome,time:Date.now()});
+  hist.unshift({addr,token,outcome,riskLevel:riskLevel||'LOW',time:Date.now()});
   if(hist.length>12) hist=hist.slice(0,12);
   sessionStorage.setItem('cbk_h',JSON.stringify(hist));
   renderHist();
@@ -526,6 +546,7 @@ function renderHist(){
   hist.forEach((h,i)=>{
     const mins=Math.floor((Date.now()-h.time)/60000);
     const ts=mins<1?'just now':mins<60?`${mins}m ago`:`${Math.floor(mins/60)}h ago`;
+    const riskClass='risk-'+(h.riskLevel||'low').toLowerCase();
     const el=document.createElement('div');
     el.className='hist-item';
     el.innerHTML=`<span class="hist-addr">${short(h.addr)}</span>
@@ -533,6 +554,7 @@ function renderHist(){
         <span style="font-family:var(--mono);font-size:10px;color:var(--muted);background:var(--surface2);padding:2px 6px;border-radius:3px">${h.token}</span>
         <span class="hist-time">${ts}</span>
         <span class="hist-badge ${h.outcome}">${h.outcome==='safe'?'Clean':h.outcome==='blacklisted'?'Blacklisted':'Error'}</span>
+        <span class="hist-risk ${riskClass}">${(h.riskLevel||'LOW')}</span>
         <button class="hist-rm" title="Remove">×</button>
       </div>`;
     el.querySelector('.hist-rm').addEventListener('click',e=>{ e.stopPropagation(); hist.splice(i,1); sessionStorage.setItem('cbk_h',JSON.stringify(hist)); renderHist(); });
@@ -541,6 +563,24 @@ function renderHist(){
   });
 }
 function clearHist(){ hist=[]; sessionStorage.removeItem('cbk_h'); renderHist(); }
+
+// ── Risk scoring ──────────────────────────────────────────────────────────────
+// results: array of boolean|null — true=blacklisted, false=clean, null=error
+// Returns { level: 'LOW'|'MEDIUM'|'HIGH'|'CRITICAL', cssClass: 'risk-low'|..., description: string }
+// HIGH tier reserved for Phase 3+ (unlimited token approvals); unreachable until approvals scanner ships.
+function computeRisk(results){
+  const defined=results.filter(r=>r!==null);
+  const anyBlacklisted=results.some(r=>r===true);
+  const anyError=results.some(r=>r===null);
+
+  if(anyBlacklisted)
+    return{level:'CRITICAL',cssClass:'risk-critical',description:'Address blacklisted on one or more chains'};
+  if(anyError&&defined.length>0)
+    return{level:'MEDIUM',cssClass:'risk-medium',description:'Partial data — some chains did not respond'};
+  if(defined.length===0)
+    return{level:'MEDIUM',cssClass:'risk-medium',description:'No chain data returned — RPC errors on all chains'};
+  return{level:'LOW',cssClass:'risk-low',description:'Not blacklisted on any checked chain'};
+}
 
 // ── Blacklist check ───────────────────────────────────────────────────────────
 async function runBlacklist(addrOverride){
@@ -558,6 +598,7 @@ async function runBlacklist(addrOverride){
   errBox.style.display='none';
   banner.style.display='none';
   rows.innerHTML='';
+  const rb=document.getElementById('blRiskBanner'); rb.style.display='none'; rb.className='risk-banner';
 
   if(!addr){ errBox.textContent='Please enter a wallet address.'; errBox.style.display='block'; return; }
 
@@ -599,7 +640,14 @@ async function runBlacklist(addrOverride){
   if(anyBl){ banner.className='banner blacklisted'; banner.style.display='flex'; banner.textContent='⚠ This address is blacklisted on one or more contracts.'; }
   else if(allOk){ banner.className='banner safe'; banner.style.display='flex'; banner.textContent='✓ Address is not blacklisted on any checked contract.'; }
 
-  saveHist(addr,blToken,outcome);
+  const risk=computeRisk(results);
+  const rb=document.getElementById('blRiskBanner');
+  rb.className='risk-banner '+risk.cssClass;
+  document.getElementById('blRiskLevel').textContent=risk.level;
+  document.getElementById('blRiskLabel').textContent=risk.description;
+  rb.style.display='flex';
+
+  saveHist(addr,blToken,outcome,risk.level);
   btn.disabled=false; btn.textContent='Check Blacklist →';
 }
 
