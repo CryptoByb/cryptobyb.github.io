@@ -205,6 +205,8 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .footer{margin-top:0;padding:28px 24px 40px;border-top:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;letter-spacing:.04em;line-height:2}
 .footer a{color:var(--accent);text-decoration:none}
 .footer a:hover{text-decoration:underline}
+.footer-tok{color:var(--text);font-weight:600}
+.footer-chains{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:3px;padding:1px 7px}
 
 /* Empty state */
 .empty{text-align:center;padding:36px 20px;font-family:var(--mono);font-size:13px;color:var(--muted)}
@@ -423,7 +425,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 
 <div class="footer">
   On-chain data only · No data stored · Read-only calls<br>
-  <span style="color:#26a17b;font-weight:600">USDT</span> ETH · Tron &nbsp;&nbsp;&nbsp; <span style="color:#2775CA;font-weight:600">USDC</span> ETH · Arbitrum · Base · Optimism · Polygon · Avalanche<br>
+  <span class="footer-tok">USDT</span> <span class="footer-chains">[ETH, Tron]</span> · <span class="footer-tok">USDC</span> <span class="footer-chains">[ETH, Arbitrum, Base, Optimism, Polygon, Avalanche]</span><br>
   <a href="https://cryptobyb.github.io">CryptoByB</a> · Built for the on-chain community
 </div>
 
