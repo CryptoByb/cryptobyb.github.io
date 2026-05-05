@@ -10,11 +10,11 @@
 <meta property="og:url" content="https://cryptobyb.pages.dev/">
 <meta property="og:title" content="Blacklist Checker — CryptoByB">
 <meta property="og:description" content="Check if a USDT or USDC wallet is blacklisted across ETH, Tron, Polygon, Arbitrum, Base, Optimism & Avalanche. Free, real-time, on-chain.">
-<meta property="og:image" content="https://cryptobyb.pages.dev/og-image.png">
+<meta property="og:image" content="https://cryptobyb.pages.dev/logo.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Blacklist Checker — CryptoByB">
 <meta name="twitter:description" content="Check if a USDT or USDC wallet is blacklisted across ETH, Tron, Polygon, Arbitrum, Base, Optimism & Avalanche. Free, real-time, on-chain.">
-<meta name="twitter:image" content="https://cryptobyb.pages.dev/og-image.png">
+<meta name="twitter:image" content="https://cryptobyb.pages.dev/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -278,6 +278,14 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .appr-loading{text-align:center;padding:40px 20px;font-family:var(--mono);font-size:12px;color:var(--muted2);display:flex;align-items:center;justify-content:center;gap:10px}
 .appr-empty{text-align:center;padding:40px 20px;font-family:var(--mono);font-size:12px;color:var(--muted)}
 .appr-err{padding:12px 16px;background:var(--red-dim);border:1px solid rgba(239,68,68,.2);border-radius:8px;font-family:var(--mono);font-size:12px;color:#fca5a5;margin-top:12px}
+.appr-warnings{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.appr-warn-unknown{padding:12px 16px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);border-radius:8px;font-size:12px;color:var(--text);line-height:1.6}
+.appr-warn-known{padding:12px 16px;background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.2);border-radius:8px;font-size:12px;color:var(--text);line-height:1.6}
+.appr-warn-limited{padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted);line-height:1.6}
+.appr-warn-icon{font-size:13px;margin-right:6px}
+.appr-spender-name{font-weight:600;color:var(--text);font-family:var(--mono);font-size:12px}
+.appr-spender-tag{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+.appr-spender-addr{font-size:10px;color:var(--accent);font-family:var(--mono);margin-top:2px;cursor:pointer;word-break:break-all}
 </style>
 </head>
 <body>
@@ -1102,13 +1110,30 @@ async function runApprovals(){
       const name = (row.tokenInfo && row.tokenInfo.tokenName) ? row.tokenInfo.tokenName : '';
       tdToken.textContent = name ? abbr + ' — ' + name : abbr;
 
-      // Spender cell: full address, click to copy
+      // Spender cell: name + category + address
       const tdSpender = document.createElement('td');
       const spender = row.to_address || '—';
-      const addrSpan = document.createElement('span');
-      addrSpan.textContent = spender;
-      addrSpan.title = 'Click to copy';
-      addrSpan.style.cssText = 'font-family:var(--mono);font-size:11px;color:var(--accent);word-break:break-all;cursor:pointer';
+      const projName = (row.project && row.project.name) ? row.project.name : '';
+      const tag1 = (row.contractInfo && row.contractInfo.tag1) ? row.contractInfo.tag1 : '';
+      const category = tag1.includes(':') ? tag1.split(':')[1].trim() : tag1;
+
+      const nameSpan = document.createElement('div');
+      nameSpan.className = 'appr-spender-name';
+      nameSpan.textContent = projName || 'Unverified Contract';
+      if(!projName) nameSpan.style.color = 'var(--red,#ef4444)';
+      tdSpender.appendChild(nameSpan);
+
+      if(category){
+        const tagSpan = document.createElement('div');
+        tagSpan.className = 'appr-spender-tag';
+        tagSpan.textContent = category;
+        tdSpender.appendChild(tagSpan);
+      }
+
+      const addrSpan = document.createElement('div');
+      addrSpan.className = 'appr-spender-addr';
+      addrSpan.textContent = spender.slice(0,8)+'…'+spender.slice(-6);
+      addrSpan.title = 'Click to copy: '+spender;
       addrSpan.addEventListener('click', function(){
         navigator.clipboard.writeText(spender).then(function(){
           addrSpan.style.color = 'var(--green)';
@@ -1140,6 +1165,66 @@ async function runApprovals(){
 
     table.appendChild(tbody);
     results.appendChild(table);
+
+    // Warning messages below table
+    const warningsDiv = document.createElement('div');
+    warningsDiv.className = 'appr-warnings';
+
+    rows.forEach(function(row){
+      const tokenAbbr = (row.tokenInfo && row.tokenInfo.tokenAbbr) ? row.tokenInfo.tokenAbbr : 'tokens';
+      const spender = row.to_address || '';
+      const projName = (row.project && row.project.name) ? row.project.name : '';
+      const tag1 = (row.contractInfo && row.contractInfo.tag1) ? row.contractInfo.tag1 : '';
+      const category = tag1.includes(':') ? tag1.split(':')[1].trim() : tag1;
+      const shortAddr = spender ? spender.slice(0,8)+'…'+spender.slice(-6) : '—';
+
+      const warnEl = document.createElement('div');
+
+      if(row.unlimited){
+        if(projName){
+          warnEl.className = 'appr-warn-known';
+          warnEl.innerHTML = '';
+          const icon = document.createElement('span');
+          icon.className = 'appr-warn-icon';
+          icon.textContent = '⚠️';
+          const msg = document.createTextNode(
+            projName + (category ? ' ('+category+')' : '') +
+            ' — This wallet has granted unlimited '+tokenAbbr+' access to '+projName+
+            '. While '+projName+' is a known protocol, they can still drain your entire '+tokenAbbr+
+            ' balance at any time — including if their contract is ever hacked. Revoke if you no longer use this service.'
+          );
+          warnEl.appendChild(icon);
+          warnEl.appendChild(msg);
+        } else {
+          warnEl.className = 'appr-warn-unknown';
+          const icon = document.createElement('span');
+          icon.className = 'appr-warn-icon';
+          icon.textContent = '⚠️';
+          const msg = document.createTextNode(
+            'Unknown spender ('+shortAddr+') — This wallet has granted unlimited '+tokenAbbr+
+            ' access to an unverified contract. The spender can drain your entire '+tokenAbbr+
+            ' balance at any time. Revoke this approval immediately.'
+          );
+          warnEl.appendChild(icon);
+          warnEl.appendChild(msg);
+        }
+      } else {
+        warnEl.className = 'appr-warn-limited';
+        const icon = document.createElement('span');
+        icon.className = 'appr-warn-icon';
+        icon.textContent = 'ℹ️';
+        const spenderLabel = projName || shortAddr;
+        const msg = document.createTextNode(
+          spenderLabel + ' — Limited '+tokenAbbr+' approval granted. The spender can only transfer up to the approved amount. Monitor and revoke if unrecognised.'
+        );
+        warnEl.appendChild(icon);
+        warnEl.appendChild(msg);
+      }
+
+      warningsDiv.appendChild(warnEl);
+    });
+
+    results.appendChild(warningsDiv);
 
     // Update lastApprovalData so blacklist tab risk score reflects manual scan
     lastApprovalData = j;
