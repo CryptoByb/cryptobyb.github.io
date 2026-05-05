@@ -137,7 +137,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .risk-banner-level{font-size:22px;font-weight:700;letter-spacing:.04em;line-height:1}
 .risk-banner-label{font-size:12px;font-weight:500;opacity:.8;letter-spacing:.06em;text-transform:uppercase}
 .risk-banner.risk-critical{background:var(--red-dim);border:1px solid rgba(239,68,68,.3);color:var(--red)}
-.risk-banner.risk-high{background:var(--orange-dim);border:1px solid rgba(249,115,22,.3);color:var(--orange)}
+.risk-banner.risk-high{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.3);color:var(--red)}
 .risk-banner.risk-medium{background:var(--amber-dim);border:1px solid rgba(245,158,11,.25);color:var(--amber)}
 .risk-banner.risk-low{background:var(--green-dim);border:1px solid rgba(34,197,94,.2);color:var(--green)}
 
@@ -158,7 +158,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .hist-badge.error{background:var(--amber-dim);color:var(--amber)}
 .hist-risk{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:.04em}
 .hist-risk.risk-critical{background:var(--red-dim);color:var(--red)}
-.hist-risk.risk-high{background:var(--orange-dim);color:var(--orange)}
+.hist-risk.risk-high{background:rgba(239,68,68,.07);color:var(--red)}
 .hist-risk.risk-medium{background:var(--amber-dim);color:var(--amber)}
 .hist-risk.risk-low{background:var(--green-dim);color:var(--green)}
 .hist-rm{font-size:16px;color:var(--muted);background:none;border:none;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0}
@@ -601,16 +601,20 @@ function clearHist(){ hist=[]; sessionStorage.removeItem('cbk_h'); renderHist();
 // results: array of boolean|null — true=blacklisted, false=clean, null=error
 // Returns { level: 'LOW'|'MEDIUM'|'HIGH'|'CRITICAL', cssClass: 'risk-low'|..., description: string }
 // HIGH tier wired to unlimited TRC-20 approvals via TronScan (Phase 4).
-function computeRisk(results, unlimitedCount){
-  unlimitedCount = unlimitedCount || 0;
+function computeRisk(results, approvalCounts){
+  const counts = approvalCounts || { unknownCount: 0, knownCount: 0 };
+  const unknownCount = counts.unknownCount || 0;
+  const knownCount = counts.knownCount || 0;
   const defined=results.filter(r=>r!==null);
   const anyBlacklisted=results.some(r=>r===true);
   const anyError=results.some(r=>r===null);
 
   if(anyBlacklisted)
     return{level:'CRITICAL',cssClass:'risk-critical',description:'Address blacklisted on one or more chains'};
-  if(unlimitedCount>0)
-    return{level:'HIGH',cssClass:'risk-high',description:'Unlimited token approval(s) detected — review Token Approvals tab'};
+  if(unknownCount>0)
+    return{level:'HIGH',cssClass:'risk-high',description:'Unlimited approval to unverified contract(s) detected — review Token Approvals tab'};
+  if(knownCount>0)
+    return{level:'MEDIUM',cssClass:'risk-medium',description:'Unlimited approval to known protocol(s) detected — still carries risk if protocol is hacked'};
   if(anyError&&defined.length>0)
     return{level:'MEDIUM',cssClass:'risk-medium',description:'Partial data — some chains did not respond'};
   if(defined.length===0)
@@ -629,9 +633,12 @@ async function fetchTronApprovals(addr){
     const j = await r.json();
     lastApprovalData = j;
     const rows = Array.isArray(j.data) ? j.data : [];
-    return rows.filter(row => row.unlimited === true).length;
+    const unlimited = rows.filter(row => row.unlimited === true);
+    const unknownCount = unlimited.filter(row => !(row.project && row.project.name)).length;
+    const knownCount = unlimited.length - unknownCount;
+    return { unknownCount, knownCount };
   } catch(e){
-    return 0;
+    return { unknownCount: 0, knownCount: 0 };
   }
 }
 
@@ -678,7 +685,7 @@ async function runBlacklist(addrOverride){
   });
 
   // Kick off approval fetch in parallel with blacklist checks (Tron only)
-  const approvalPromise = tron ? fetchTronApprovals(addr) : Promise.resolve(0);
+  const approvalPromise = tron ? fetchTronApprovals(addr) : Promise.resolve({unknownCount:0,knownCount:0});
 
   // Hide rows for Tron only — prevents green flash before approval check settles
   if(tron) rows.style.visibility='hidden';
@@ -690,14 +697,14 @@ async function runBlacklist(addrOverride){
     } catch(e){ updateRow(c.id,null,e.message); return null; }
   }));
 
-  const unlimitedCount = await approvalPromise;
+  const approvalCounts = await approvalPromise;
 
   const def=results.filter(r=>r!==null);
   const anyBl=def.some(r=>r===true);
   const allOk=def.length>0&&def.every(r=>r===false);
   const outcome=anyBl?'blacklisted':allOk?'safe':'error';
 
-  const risk=computeRisk(results, unlimitedCount);
+  const risk=computeRisk(results, approvalCounts);
 
   if(risk.level==='HIGH'){
     // Hide chain rows — all green but unlimited approval found; focus user on Approvals tab
@@ -987,12 +994,13 @@ async function runBatch(){
       return;
     }
 
-    const approvalPromise=tron?fetchTronApprovals(addr):Promise.resolve(0);
+    const approvalPromise=tron?fetchTronApprovals(addr):Promise.resolve({unknownCount:0,knownCount:0});
     let results;
     try{
       results=await Promise.all(chains.map(async function(c){ try{ return c.type==='tron'?await checkTron(addr):await checkEvm(c,addr); } catch(e){ return null; } }));
     } catch(e){ results=[null]; }
-    const unlimitedCount=await approvalPromise;
+    const approvalCounts=await approvalPromise;
+    const totalUnlimited=(approvalCounts.unknownCount||0)+(approvalCounts.knownCount||0);
 
     // Blacklist cell
     const anyBl=results.some(r=>r===true);
@@ -1011,7 +1019,7 @@ async function runBatch(){
       const limitedCount=rows.filter(function(r){ return !r.unlimited&&Number(r.balance)>0; }).length;
       const apSpan=document.createElement('span');
       apSpan.style.cssText='font-family:var(--mono);font-size:11px;font-weight:600;padding:3px 10px;border-radius:3px';
-      if(unlimitedCount>0){ apSpan.textContent='UNLIMITED'; apSpan.style.color='var(--red)'; apSpan.style.background='var(--red-dim)'; }
+      if(totalUnlimited>0){ apSpan.textContent='UNLIMITED'; apSpan.style.color='var(--red)'; apSpan.style.background='var(--red-dim)'; }
       else if(limitedCount>0){ apSpan.textContent='LIMITED'; apSpan.style.color='var(--amber)'; apSpan.style.background='var(--amber-dim)'; }
       else { apSpan.textContent='NONE'; apSpan.style.color='var(--muted2)'; }
       apCell.innerHTML=''; apCell.appendChild(apSpan);
@@ -1020,9 +1028,9 @@ async function runBatch(){
     }
 
     // Risk cell
-    const risk=computeRisk(results,unlimitedCount);
-    const riskColors={'risk-critical':'var(--red)','risk-high':'var(--orange)','risk-medium':'var(--amber)','risk-low':'var(--green)'};
-    const riskBgs={'risk-critical':'var(--red-dim)','risk-high':'var(--orange-dim)','risk-medium':'var(--amber-dim)','risk-low':'var(--green-dim)'};
+    const risk=computeRisk(results,approvalCounts);
+    const riskColors={'risk-critical':'var(--red)','risk-high':'var(--red)','risk-medium':'var(--amber)','risk-low':'var(--green)'};
+    const riskBgs={'risk-critical':'var(--red-dim)','risk-high':'rgba(239,68,68,.07)','risk-medium':'var(--amber-dim)','risk-low':'var(--green-dim)'};
     const riskSpan=document.createElement('span');
     riskSpan.style.cssText='font-family:var(--mono);font-size:11px;font-weight:600;padding:3px 10px;border-radius:3px';
     riskSpan.textContent=risk.level;
