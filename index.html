@@ -941,7 +941,7 @@ async function runBatch(){
   table.className='btable';
   const thead=document.createElement('thead');
   const hrow=document.createElement('tr');
-  ['#','Address','Blacklist','Token Approval','Risk'].forEach(function(h){
+  ['#','Address','Blacklist','Risk'].forEach(function(h){
     const th=document.createElement('th'); th.textContent=h; hrow.appendChild(th);
   });
   thead.appendChild(hrow); table.appendChild(thead);
@@ -962,13 +962,10 @@ async function runBatch(){
     const tdBl=document.createElement('td'); tdBl.id='btr-'+i+'-bl';
     const spin=document.createElement('div'); spin.className='spin'; tdBl.appendChild(spin);
 
-    const tdAp=document.createElement('td'); tdAp.id='btr-'+i+'-ap';
-    tdAp.style.cssText='font-family:var(--mono);font-size:11px;color:var(--muted)'; tdAp.textContent='—';
-
     const tdRisk=document.createElement('td'); tdRisk.id='btr-'+i+'-risk';
     tdRisk.style.cssText='font-family:var(--mono);font-size:11px;color:var(--muted)'; tdRisk.textContent='—';
 
-    tr.appendChild(tdN); tr.appendChild(tdA); tr.appendChild(tdBl); tr.appendChild(tdAp); tr.appendChild(tdRisk);
+    tr.appendChild(tdN); tr.appendChild(tdA); tr.appendChild(tdBl); tr.appendChild(tdRisk);
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
@@ -985,7 +982,6 @@ async function runBatch(){
     const tron=isTron(addr);
     const chains=CHAINS[batchTok].filter(c=>tron?c.type==='tron':c.type==='evm');
     const blCell=document.getElementById('btr-'+i+'-bl');
-    const apCell=document.getElementById('btr-'+i+'-ap');
     const riskCell=document.getElementById('btr-'+i+'-risk');
 
     if(!chains.length){
@@ -1000,7 +996,6 @@ async function runBatch(){
       results=await Promise.all(chains.map(async function(c){ try{ return c.type==='tron'?await checkTron(addr):await checkEvm(c,addr); } catch(e){ return null; } }));
     } catch(e){ results=[null]; }
     const approvalCounts=await approvalPromise;
-    const totalUnlimited=(approvalCounts.unknownCount||0)+(approvalCounts.knownCount||0);
 
     // Blacklist cell
     const anyBl=results.some(r=>r===true);
@@ -1012,20 +1007,6 @@ async function runBatch(){
     else if(allOk){ blSpan.textContent='● CLEAN'; blSpan.style.color='var(--green)'; blSpan.style.background='var(--green-dim)'; }
     else { blSpan.textContent='⚠ ERROR'; blSpan.style.color='var(--amber)'; }
     blCell.appendChild(blSpan);
-
-    // Token Approval cell
-    if(tron){
-      const rows=lastApprovalData&&Array.isArray(lastApprovalData.data)?lastApprovalData.data:[];
-      const limitedCount=rows.filter(function(r){ return !r.unlimited&&Number(r.balance)>0; }).length;
-      const apSpan=document.createElement('span');
-      apSpan.style.cssText='font-family:var(--mono);font-size:11px;font-weight:600;padding:3px 10px;border-radius:3px';
-      if(totalUnlimited>0){ apSpan.textContent='UNLIMITED'; apSpan.style.color='var(--red)'; apSpan.style.background='var(--red-dim)'; }
-      else if(limitedCount>0){ apSpan.textContent='LIMITED'; apSpan.style.color='var(--amber)'; apSpan.style.background='var(--amber-dim)'; }
-      else { apSpan.textContent='NONE'; apSpan.style.color='var(--muted2)'; }
-      apCell.innerHTML=''; apCell.appendChild(apSpan);
-    } else {
-      apCell.textContent='N/A'; apCell.style.cssText='font-family:var(--mono);font-size:11px;color:var(--muted)';
-    }
 
     // Risk cell
     const risk=computeRisk(results,approvalCounts);
