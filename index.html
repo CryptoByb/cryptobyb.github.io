@@ -1091,7 +1091,7 @@ async function runApprovals(){
 
     const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');
-    ['Token', 'Risk Contract', 'Allowance'].forEach(function(col){
+    ['Token', 'Risk Contract', 'Allowance', 'Approved On'].forEach(function(col){
       const th = document.createElement('th');
       th.textContent = col;
       headerRow.appendChild(th);
@@ -1142,6 +1142,37 @@ async function runApprovals(){
       });
       tdSpender.appendChild(addrSpan);
 
+      // Website + TronScan links
+      const linksDiv = document.createElement('div');
+      linksDiv.style.cssText = 'display:flex;gap:10px;margin-top:4px';
+
+      const website = (row.project && row.project.officalWebsite) ? row.project.officalWebsite : '';
+      if(website){
+        const siteLink = document.createElement('a');
+        siteLink.href = website.startsWith('http') ? website : 'https://'+website;
+        siteLink.target = '_blank';
+        siteLink.rel = 'noopener noreferrer';
+        siteLink.textContent = '↗ Website';
+        siteLink.style.cssText = 'font-size:10px;color:var(--muted);font-family:var(--mono);text-decoration:none';
+        siteLink.addEventListener('mouseover', function(){ siteLink.style.color='var(--accent)'; });
+        siteLink.addEventListener('mouseout', function(){ siteLink.style.color='var(--muted)'; });
+        linksDiv.appendChild(siteLink);
+      }
+
+      if(spender && spender !== '—'){
+        const tronLink = document.createElement('a');
+        tronLink.href = 'https://tronscan.org/#/contract/'+spender;
+        tronLink.target = '_blank';
+        tronLink.rel = 'noopener noreferrer';
+        tronLink.textContent = '↗ TronScan';
+        tronLink.style.cssText = 'font-size:10px;color:var(--muted);font-family:var(--mono);text-decoration:none';
+        tronLink.addEventListener('mouseover', function(){ tronLink.style.color='var(--accent)'; });
+        tronLink.addEventListener('mouseout', function(){ tronLink.style.color='var(--muted)'; });
+        linksDiv.appendChild(tronLink);
+      }
+
+      if(linksDiv.children.length) tdSpender.appendChild(linksDiv);
+
       // Allowance cell
       const tdAllowance = document.createElement('td');
       if(row.unlimited === true){
@@ -1157,9 +1188,29 @@ async function runApprovals(){
         tdAllowance.style.color = 'var(--muted2)';
       }
 
+      // Approved On cell
+      const tdDate = document.createElement('td');
+      if(row.operate_time){
+        const d = new Date(row.operate_time);
+        const dateStr = d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+        const timeStr = d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+        const dateLine = document.createElement('div');
+        dateLine.style.cssText = 'font-family:var(--mono);font-size:12px;color:var(--text)';
+        dateLine.textContent = dateStr;
+        const timeLine = document.createElement('div');
+        timeLine.style.cssText = 'font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px';
+        timeLine.textContent = timeStr;
+        tdDate.appendChild(dateLine);
+        tdDate.appendChild(timeLine);
+      } else {
+        tdDate.textContent = '—';
+        tdDate.style.color = 'var(--muted)';
+      }
+
       tr.appendChild(tdToken);
       tr.appendChild(tdSpender);
       tr.appendChild(tdAllowance);
+      tr.appendChild(tdDate);
       tbody.appendChild(tr);
     });
 
